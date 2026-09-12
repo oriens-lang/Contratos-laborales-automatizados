@@ -565,6 +565,69 @@ p { margin: 0; }
 .boton-accion:hover { background: var(--dorado-tenue); }
 .boton-accion:focus-visible { outline: 2px solid var(--dorado); outline-offset: 2px; }
 
+a.boton-accion { display: inline-flex; align-items: center; text-decoration: none; }
+
+.barra-acciones__campos {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px 14px;
+  margin-top: 12px;
+}
+
+.campo { display: flex; flex-direction: column; gap: 4px; }
+
+.campo__etiqueta {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--texto-suave);
+}
+
+.campo select,
+.campo input {
+  min-width: 200px;
+  padding: 8px 10px;
+  border: 1px solid var(--borde-fuerte);
+  border-radius: 8px;
+  background: var(--superficie);
+  font: inherit;
+  font-size: 14px;
+  color: var(--texto);
+}
+
+.campo select:focus-visible,
+.campo input:focus-visible { outline: 2px solid var(--dorado); outline-offset: 1px; }
+
+.enlace { color: var(--dorado-oscuro); text-underline-offset: 3px; }
+.pie a { color: inherit; }
+
+/* Paso 1 · Plantilla */
+.plantilla-eleccion { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 14px; }
+.campo--ancho select { min-width: min(420px, 100%); }
+#nota-plantilla { margin-top: 10px; }
+.guia { margin-top: 16px; }
+.guia .panel-nota { margin: 10px 0 12px; }
+.guia code, .tabla--guia code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--dorado-tenue);
+  font-size: 13px;
+  color: var(--tinta);
+}
+.tabla--guia td { white-space: normal; }
+.boton-copiar { padding: 3px 10px; font-size: 12px; }
+
+/* Paso 2 bloqueado hasta elegir plantilla */
+.mensaje--aviso { margin: 0 0 12px; background: var(--alerta-tenue); border: 1px solid #efdcb5; color: var(--alerta); }
+.tarjeta--bloqueada .zona-carga { opacity: .45; pointer-events: none; }
+
+.contenido--acceso { max-width: 480px; padding-top: 48px; }
+.formulario { display: flex; flex-direction: column; gap: 14px; }
+.formulario .campo input { width: 100%; }
+.formulario .boton { align-self: flex-start; }
+
 .boton--secundario { background: transparent; border-color: var(--dorado); color: var(--dorado-oscuro); }
 .boton--secundario:hover:not(:disabled) { background: var(--dorado-tenue); }
 
