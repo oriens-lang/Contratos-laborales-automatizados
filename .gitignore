@@ -1,0 +1,13 @@
+.venv/
+__pycache__/
+*.pyc
+.DS_Store
+contratos generados/
+~$*
+
+# Formato de contrato del despacho: no se publica (repositorio público)
+plantillas/*.docx
+
+# Perfiles de puesto de clientes: no se publican (solo el de demostración)
+perfiles de puesto/*.docx
+!perfiles de puesto/Perfil de Puesto Diseñadora.docx
