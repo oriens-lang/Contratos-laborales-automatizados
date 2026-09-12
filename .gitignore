@@ -11,3 +11,6 @@ plantillas/*.docx
 # Perfiles de puesto de clientes: no se publican (solo el de demostración)
 perfiles de puesto/*.docx
 !perfiles de puesto/Perfil de Puesto Diseñadora.docx
+
+# Contraseña del despacho (hash) y llave de sesión
+acceso.json

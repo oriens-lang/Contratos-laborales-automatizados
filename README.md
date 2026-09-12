@@ -2,93 +2,92 @@
 
 Aplicación interna de Oriens Abogados para cargar un Excel de trabajadores, validar sus datos y generar contratos individuales de trabajo por tiempo indeterminado en Word, con el perfil de puesto de cada trabajador como ANEXO UNO.
 
-## Cómo abrirla
+## Uso diario
 
-Doble clic en `iniciar.command`, o bien desde la terminal:
+- **En la Mac del titular:** doble clic en **ORIENS Contratos** (Escritorio). Enciende el servidor si hace falta y abre la aplicación.
+- **Abogada asistente, desde su computadora:** abrir en el navegador la dirección que aparece al pie de la pantalla («Acceso en la red del despacho», por ejemplo `http://192.168.1.20:5050/`). Ambas computadoras deben estar en la red de la oficina y la Mac del titular, encendida.
+- **Contraseña:** la primera vez se crea en la Mac del titular; después la usan ambos. Para restablecerla, borrar `acceso.json` y volver a entrar desde esa Mac.
 
-```bash
-.venv/bin/python app.py
-```
+Flujo:
+1. **Plantilla del contrato:** elegir una de las guardadas o subir una nueva (no hay plantilla predeterminada; el Excel se habilita al elegirla).
+2. **Datos del Excel:** cargar el Excel del cliente (el **formato de captura** se descarga desde ese mismo paso).
+3. **Validar información** y subir los perfiles de puesto que falten.
+4. Elegir la **fecha de firma** → **Generar contratos** → **Descargar contratos (.zip)**.
 
-Luego abre <http://127.0.0.1:5050>. Solo funciona en este equipo (no queda expuesta a la red).
+### Varias plantillas
+
+- En el paso 1, **Subir plantilla nueva** acepta cualquier Word que tenga marcadores `{{ campo }}`. La guía «Cómo preparar una plantilla nueva» (en ese mismo paso) lista todos los marcadores con un botón **Copiar**.
+- Si la plantilla usa las actividades del perfil (`{{ actividad_1 }}` … `{{ actividad_5 }}`), cada contrato lleva el perfil de puesto como ANEXO UNO; si no las usa (p. ej., un convenio), no se agrega anexo.
+- El resumen de cada lote solo reporta en blanco los datos que usa la plantilla elegida.
 
 ## Plantilla del contrato (no incluida en el repositorio)
 
-El formato de contrato del despacho no se publica. Para usar la aplicación, copia la plantilla oficial como `plantillas/FORMATO CONTRATO TIEMPO INDETERMINADO (original).docx` y crea la copia marcada:
+El formato de contrato del despacho no se publica. Para instalar la aplicación en otra Mac, copia la plantilla oficial como `plantillas/FORMATO CONTRATO TIEMPO INDETERMINADO (original).docx` y crea la copia marcada:
 
 ```bash
 .venv/bin/python plantillas/marcar_plantilla.py
 ```
 
+Para cambiar el texto de la plantilla, ver `plantillas/LEEME.md`.
+
 ## Estructura
 
 ```
 generador-contratos/
-├── app.py                  Servidor Flask: rutas de la página y de la API
-├── config.py               Puerto, límite del archivo, plantilla, perfiles y salidas
+├── app.py                  Servidor Flask: acceso con contraseña, pantalla y API
+├── config.py               Puerto, red, carpetas y archivo de acceso
 ├── servicios/              Lógica de negocio (sin nada de interfaz)
-│   ├── archivos.py         Revisión del formato del archivo recibido
+│   ├── acceso.py           Contraseña compartida (solo se guarda su hash)
+│   ├── archivos.py         Revisión del formato de los archivos recibidos
 │   ├── lector_excel.py     Lectura de las hojas Trabajadores y Patron
 │   ├── perfiles.py         Relación PUESTO → perfil y extracción de las cinco actividades
 │   ├── validador.py        Datos faltantes, inconsistencias, puestos y perfiles
-│   ├── mapeo_contrato.py   Mapeo Excel → marcadores de la plantilla oficial
+│   ├── mapeo_contrato.py   Mapeo Excel → marcadores de la plantilla
+│   ├── plantillas.py       Plantillas disponibles, subida y revisión
 │   └── generador.py        Contrato por trabajador + perfil como ANEXO UNO
-├── templates/index.html    Estructura de la pantalla
-├── static/                 Diseño (css) y comportamiento (js) de la pantalla
-├── plantillas/             Plantilla oficial (original y copia marcada) y script de marcado
+├── templates/              Pantallas (principal y acceso)
+├── static/                 Diseño (css) y comportamiento (js)
+├── plantillas/             Plantilla oficial, copia marcada, formato de captura y scripts
 ├── perfiles de puesto/     Un «Perfil de Puesto <puesto>.docx» por puesto
-├── salidas/                Contratos generados: una carpeta por lote (no se versiona)
+├── contratos generados/    Una carpeta por cliente y fecha (no se versiona)
 ├── pruebas/                Archivos de prueba con datos simulados o ficticios
-├── requirements.txt        Dependencias de Python
-└── iniciar.command         Lanzador con doble clic (macOS)
+└── requirements.txt        Dependencias de Python
 ```
 
-## API
+## API (requiere sesión iniciada)
 
 | Ruta | Qué hace |
 |---|---|
-| `GET /` | Pantalla principal |
-| `POST /api/validar` | Lee el `.xlsx` (en memoria, sin guardarlo) y devuelve resumen, puestos y perfiles, patrón, trabajadores y validación |
-| `POST /api/perfiles` | Recibe el perfil (.docx) de un puesto, revisa sus cinco actividades y lo guarda en `perfiles de puesto/` |
-| `POST /api/generar` | Genera un `.docx` por trabajador con perfil en `salidas/Contratos AAAA-MM-DD HH.MM.SS/` |
-| `POST /api/salidas/<lote>/abrir` | Abre en Finder la carpeta de un lote (solo dentro de `salidas/`) |
+| `GET /entrar`, `GET /salir` | Acceso con la contraseña del despacho |
+| `GET /api/formato` | Descarga el formato de captura para el cliente |
+| `POST /api/validar` | Lee el `.xlsx` (en memoria) y devuelve resumen, puestos y perfiles, patrón, trabajadores y validación |
+| `POST /api/generar` | Genera un `.docx` por trabajador (campos: `archivo`, `plantilla`, `fecha_firma`) |
+| `GET /api/plantillas` · `POST /api/plantillas` | Lista las plantillas · sube una plantilla marcada (se revisan sus marcadores) |
+| `GET /api/plantillas/<nombre>/descargar` | Descarga una plantilla para editarla |
+| `POST /api/perfiles` | Recibe el perfil (.docx) de un puesto y revisa sus cinco actividades |
+| `GET /api/salidas/<lote>/zip` | Descarga los contratos de un lote |
+| `POST /api/salidas/<lote>/abrir` | Abre la carpeta en Finder (solo en la Mac donde corre) |
 
 ## Cómo lee el Excel
 
-- Busca las hojas **Trabajadores** y **Patron** por su nombre (sin importar mayúsculas ni acentos); las demás se reportan como omitidas.
-- Detecta la fila de encabezados y, si existe, la fila de grupos superior con celdas combinadas (DOMICILIO, SALARIO DIARIO IMSS, ACTA CONSTITUTIVA). Muestra los encabezados tal como están en el Excel.
-- Ignora, y lo informa, las filas vacías, las que solo repiten texto del formato (p. ej. "FECHA DE INGRESO"), los encabezados repetidos, las notas o instrucciones y los datos sueltos sin nombre ni identificación.
+- Busca las hojas **Trabajadores** y **Patron** por su nombre; las demás se reportan como omitidas.
+- Detecta los encabezados en uno o dos niveles (grupos combinados como DOMICILIO o HORARIO SÁBADO) y los muestra tal como están.
+- Ignora, y lo informa, las filas vacías, las que solo repiten texto del formato, los encabezados repetidos, las notas y los datos sueltos sin nombre ni identificación.
 - Una celda vacía nunca provoca error: se muestra como `____________` y genera una advertencia.
-- Si una celda de un campo que no es fecha (EDAD, SALARIO, NÚMERO…) tiene formato de fecha, recupera el número capturado en lugar de mostrar una fecha falsa (p. ej. `29/01/1900` en vez de `29`).
-- Revisa, solo como advertencia, el formato de CURP, RFC, NSS y correo, y que CURP, RFC y NSS no se repitan entre trabajadores.
+- Si una celda que no es fecha tiene formato de fecha, recupera el número capturado (p. ej. `29` y no `29/01/1900`).
+- Revisa, solo como advertencia, CURP, RFC, NSS y correo, y que no se repitan entre trabajadores.
+
+## Cómo llena el contrato
+
+- Datos del trabajador y del patrón; lugar y fecha de nacimiento y sexo (columnas del formato nuevo).
+- **Declaración II b):** la experiencia se llena con el PUESTO.
+- **Colonia:** se completa con el municipio, porque la plantilla no tiene espacio propio para él.
+- **Cláusula CUARTA:** entrada, inicio y fin de comida y salida de lunes a viernes, y horario del sábado. Si faltan las columnas de entrada y salida, se toman las dos horas de JORNADA DE TRABAJO.
+- **Cláusula PRIMERA:** las cinco actividades del perfil del puesto; el perfil completo va como ANEXO UNO.
+- **Fecha de firma:** la que se elige en la pantalla.
+- Lo que falte queda como `____________` y se lista en `Resumen de generación.txt`.
 
 ## Perfiles de puesto
 
-- **Desde la pantalla:** en «Puestos y perfiles», botón **Subir perfil** (o **Reemplazar**) del puesto. El Word se revisa (debe tener las cinco actividades) y se guarda con el nombre correcto; la validación se actualiza sola.
-- También se pueden copiar a mano a `perfiles de puesto/` con el nombre **`Perfil de Puesto <puesto>.docx`** (p. ej. `Perfil de Puesto Ejecutivo de ventas.docx`). El puesto se compara con la columna PUESTO sin distinguir mayúsculas, acentos ni espacios repetidos.
-- Solo el perfil de demostración (Diseñadora) se publica en el repositorio; los demás perfiles quedan fuera de git.
-- De cada perfil se toman, sin modificarlas, las cinco actividades numeradas de la sección **«Cinco actividades principales»**; si no hay exactamente cinco, el perfil se marca como no utilizable.
-- Un mismo perfil sirve a todos los trabajadores con ese puesto. Si falta el perfil, la validación muestra `Perfil de puesto pendiente: <puesto>` y **ese contrato no se genera**.
-
-## Cómo genera los contratos
-
-- Plantilla: `plantillas/Contrato tiempo indeterminado (marcado).docx`, copia de la plantilla oficial con marcadores `{{ campo }}` solo en los espacios variables (ver `plantillas/LEEME.md`).
-- Por trabajador: datos del trabajador y del patrón, cinco actividades de SU perfil en la cláusula PRIMERA y SU perfil completo como ANEXO UNO en una sección nueva que conserva la página, los márgenes y el pie del perfil.
-- Nombres de archivo: `Contrato Daniela Sofía Martínez López.docx` (espacios normales, sin guiones bajos; si se repite, `Contrato X (2).docx`).
-- Cada lote incluye `Resumen de generación.txt`: perfil usado, datos en blanco y trabajadores no generados.
-- Los datos pendientes no bloquean: se escriben como `____________` y la pantalla pide confirmación antes de generar.
-
-## Pruebas
-
-```bash
-.venv/bin/python pruebas/crear_excel_ficticio.py   # pruebas/Base de prueba FICTICIA.xlsx (datos inventados)
-```
-
-`pruebas/Base ORIENS Datos Simulados Ejercicio.xlsx` es la base simulada del ejercicio (5 trabajadores, 4 puestos).
-
-## Hoja de ruta
-
-1. ✔ Interfaz inicial.
-2. ✔ Lectura del Excel y validación de datos faltantes.
-3. ✔ Generación en Word con la plantilla oficial y perfiles de puesto como ANEXO UNO.
-4. Pendiente: definir los espacios de la plantilla sin dato en el Excel y agregar los perfiles faltantes.
+- Desde la pantalla, en «Puestos y perfiles», botón **Subir perfil** (o **Reemplazar**). Debe tener la sección «Cinco actividades principales» con cinco actividades numeradas.
+- Se guardan como `Perfil de Puesto <puesto>.docx`. Solo el de demostración (Diseñadora) se publica en el repositorio.
