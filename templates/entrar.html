@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ORIENS | Acceso</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='7') }}">
+</head>
+<body>
+
+  <header class="encabezado">
+    <div class="encabezado__contenido">
+      <h1 class="marca">
+        <span class="marca__nombre">ORIENS</span>
+        <span class="marca__separador" aria-hidden="true">|</span>
+        <span class="marca__producto">Generador Inteligente de Contratos</span>
+      </h1>
+      <p class="encabezado__subtitulo">Automatización y validación de contratos individuales de trabajo</p>
+    </div>
+  </header>
+
+  <main class="contenido contenido--acceso">
+    <section class="tarjeta" aria-labelledby="titulo-acceso">
+      <header class="tarjeta__encabezado">
+        <div>
+          <span class="tarjeta__paso">Acceso del despacho</span>
+          <h2 id="titulo-acceso">{% if primera_vez %}Crea la contraseña{% else %}Entrar{% endif %}</h2>
+        </div>
+      </header>
+
+      {% if primera_vez and not es_local %}
+        <p class="panel-nota">Todavía no hay contraseña. Debe crearse en la computadora donde corre la aplicación.</p>
+      {% else %}
+        <form method="post" class="formulario">
+          <label class="campo">
+            <span class="campo__etiqueta">Contraseña</span>
+            <input type="password" name="contrasena" required autofocus
+                   autocomplete="{{ 'new-password' if primera_vez else 'current-password' }}">
+          </label>
+          {% if primera_vez %}
+            <label class="campo">
+              <span class="campo__etiqueta">Confirma la contraseña</span>
+              <input type="password" name="confirmacion" required autocomplete="new-password">
+            </label>
+            <p class="panel-nota">Mínimo 8 caracteres. Compártela solo con quien usará la aplicación.</p>
+          {% endif %}
+          {% if error %}<p class="mensaje mensaje--error" role="alert">{{ error }}</p>{% endif %}
+          <button type="submit" class="boton boton--primario">
+            {% if primera_vez %}Guardar y entrar{% else %}Entrar{% endif %}
+          </button>
+        </form>
+      {% endif %}
+    </section>
+  </main>
+
+  <footer class="pie">
+    Oriens Abogados · Herramienta de uso interno
+    {% if direccion_red %}· Acceso en la red del despacho: {{ direccion_red }}{% endif %}
+  </footer>
+</body>
+</html>

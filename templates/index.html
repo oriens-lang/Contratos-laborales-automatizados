@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ORIENS | Generador Inteligente de Contratos</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='8') }}">
+</head>
+<body data-limite-mb="{{ limite_mb }}" data-es-local="{{ '1' if es_local else '0' }}">
+
+  <header class="encabezado">
+    <div class="encabezado__contenido">
+      <h1 class="marca">
+        <span class="marca__nombre">ORIENS</span>
+        <span class="marca__separador" aria-hidden="true">|</span>
+        <span class="marca__producto">Generador Inteligente de Contratos</span>
+      </h1>
+      <p class="encabezado__subtitulo">Automatización y validación de contratos individuales de trabajo</p>
+    </div>
+  </header>
+
+  <main class="contenido">
+
+    <!-- Banda de estado -->
+    <section class="banda-estado" aria-label="Estado del proceso">
+      <div class="indicador">
+        <p class="indicador__etiqueta">Trabajadores detectados</p>
+        <p class="indicador__valor" id="banda-trabajadores">—</p>
+        <p class="indicador__detalle" id="banda-trabajadores-detalle"></p>
+      </div>
+      <div class="indicador">
+        <p class="indicador__etiqueta">Puestos distintos</p>
+        <p class="indicador__valor" id="banda-puestos">—</p>
+        <p class="indicador__detalle"></p>
+      </div>
+      <div class="indicador">
+        <p class="indicador__etiqueta">Perfiles disponibles</p>
+        <p class="indicador__valor" id="banda-perfiles">—</p>
+        <p class="indicador__detalle" id="banda-perfiles-detalle"></p>
+      </div>
+      <div class="indicador">
+        <p class="indicador__etiqueta">Contratos generados</p>
+        <p class="indicador__valor" id="banda-contratos">—</p>
+        <p class="indicador__detalle" id="banda-contratos-detalle"></p>
+      </div>
+    </section>
+
+    <ol class="pasos" aria-label="Flujo de trabajo">
+      <li class="paso paso--activo" data-paso="1"><span class="paso__numero">1</span>Elegir plantilla</li>
+      <li class="paso" data-paso="2"><span class="paso__numero">2</span>Cargar Excel</li>
+      <li class="paso" data-paso="3"><span class="paso__numero">3</span>Validar información</li>
+      <li class="paso" data-paso="4"><span class="paso__numero">4</span>Generar contratos</li>
+    </ol>
+
+    <!-- 1. Plantilla del contrato -->
+    <section class="tarjeta" aria-labelledby="titulo-plantilla">
+      <header class="tarjeta__encabezado">
+        <div>
+          <span class="tarjeta__paso">Paso 1 · Plantilla</span>
+          <h2 id="titulo-plantilla">Plantilla del contrato</h2>
+        </div>
+        <p class="tarjeta__nota">Elige la plantilla de Word que se usará o sube una nueva.</p>
+      </header>
+
+      <div class="plantilla-eleccion">
+        <label class="campo campo--ancho">
+          <span class="campo__etiqueta">Plantilla</span>
+          <select id="plantilla"><option value="">— Elige una plantilla —</option></select>
+        </label>
+        <a class="boton-accion" id="enlace-descargar-plantilla" href="#" hidden>Descargar para editar</a>
+        <button type="button" class="boton-accion" id="boton-subir-plantilla">Subir plantilla nueva</button>
+      </div>
+      <p class="panel-nota" id="nota-plantilla">Todavía no has elegido plantilla.</p>
+
+      <details class="actividades guia">
+        <summary>Cómo preparar una plantilla nueva · marcadores disponibles</summary>
+        <p class="panel-nota">
+          En Word, sustituye cada línea en blanco por el marcador del dato, con las llaves dobles y tal como aparece
+          aquí; por ejemplo: <code>{% raw %}QUE CELEBRAN POR UNA PARTE {{ patron_razon_social }}{% endraw %}</code>.
+          Si la plantilla usa las actividades del perfil (<code>{% raw %}{{ actividad_1 }}{% endraw %}</code> a
+          <code>{% raw %}{{ actividad_5 }}{% endraw %}</code>), cada contrato llevará además el perfil de puesto como
+          ANEXO UNO. Al subirla, la aplicación revisa que todos los marcadores sean válidos.
+        </p>
+        <div class="tabla-contenedor">
+          <table class="tabla tabla--guia">
+            <thead>
+              <tr><th scope="col">Marcador</th><th scope="col">Dato que inserta</th><th scope="col"><span class="visualmente-oculto">Copiar</span></th></tr>
+            </thead>
+            <tbody>
+              {% for m in marcadores %}
+              <tr>
+                <td><code>{{ m.marcador }}</code></td>
+                <td>{{ m.descripcion }}</td>
+                <td><button type="button" class="boton-accion boton-copiar" data-marcador="{{ m.marcador }}">Copiar</button></td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
+
+    <!-- 2. Carga del Excel -->
+    <section class="tarjeta" id="tarjeta-carga" aria-labelledby="titulo-carga">
+      <header class="tarjeta__encabezado">
+        <div>
+          <span class="tarjeta__paso">Paso 2 · Datos del Excel</span>
+          <h2 id="titulo-carga">Archivo de trabajadores</h2>
+        </div>
+        <p class="tarjeta__nota">Excel (.xlsx) · máximo {{ limite_mb }} MB ·
+          <a class="enlace" href="{{ url_for('descargar_formato') }}">Descargar formato de captura</a></p>
+      </header>
+
+      <p class="mensaje mensaje--aviso" id="aviso-bloqueo">Primero elige la plantilla del contrato (paso 1).</p>
+
+      <label class="zona-carga" id="zona-carga" for="entrada-archivo">
+        <input type="file" id="entrada-archivo" class="visualmente-oculto"
+               accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+        <svg class="zona-carga__icono" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+          <path d="M14 3v5h5"/><path d="M12 17v-6"/><path d="m9 13 3-3 3 3"/>
+        </svg>
+        <span class="zona-carga__titulo">Arrastra aquí el archivo Excel</span>
+        <span class="zona-carga__texto">o <span class="zona-carga__enlace">selecciónalo desde tu equipo</span></span>
+      </label>
+
+      <div class="archivo-seleccionado" id="archivo-seleccionado" hidden>
+        <span class="archivo-seleccionado__icono" aria-hidden="true">XLSX</span>
+        <div class="archivo-seleccionado__datos">
+          <p class="archivo-seleccionado__nombre" id="archivo-nombre"></p>
+          <p class="archivo-seleccionado__detalle" id="archivo-detalle"></p>
+        </div>
+        <button type="button" class="boton-texto" id="boton-quitar">Quitar</button>
+      </div>
+
+      <p class="mensaje mensaje--error" id="error-carga" role="alert" hidden></p>
+    </section>
+
+    <div class="rejilla">
+      <!-- 2. Resumen -->
+      <section class="tarjeta" aria-labelledby="titulo-resumen">
+        <header class="tarjeta__encabezado">
+          <div>
+            <span class="tarjeta__paso">Paso 3 · Resumen</span>
+            <h2 id="titulo-resumen">Resumen de información</h2>
+          </div>
+        </header>
+        <div id="resumen" aria-live="polite">
+          <div class="vacio">
+            <p class="vacio__titulo">Sin información todavía</p>
+            <p class="vacio__detalle">Carga el archivo y pulsa “Validar información” para ver aquí los datos detectados.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 3. Validación -->
+      <section class="tarjeta" aria-labelledby="titulo-validacion">
+        <header class="tarjeta__encabezado">
+          <div>
+            <span class="tarjeta__paso">Paso 3 · Revisión</span>
+            <h2 id="titulo-validacion">Validación</h2>
+          </div>
+        </header>
+        <div id="validacion" aria-live="polite">
+          <div class="vacio">
+            <p class="vacio__titulo">Sin validaciones todavía</p>
+            <p class="vacio__detalle">Aquí aparecerán los registros completos, los datos faltantes y las observaciones.</p>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- Puestos y perfiles (visible tras validar) -->
+    <section class="tarjeta" id="seccion-perfiles" aria-labelledby="titulo-perfiles" hidden>
+      <header class="tarjeta__encabezado">
+        <h2 id="titulo-perfiles">Puestos y perfiles</h2>
+        <p class="tarjeta__nota" id="nota-perfiles"></p>
+      </header>
+      <div id="perfiles"></div>
+    </section>
+
+    <!-- 4. Datos del patrón (visible tras validar) -->
+    <section class="tarjeta" id="seccion-patron" aria-labelledby="titulo-patron" hidden>
+      <header class="tarjeta__encabezado">
+        <h2 id="titulo-patron">Datos del patrón</h2>
+        <p class="tarjeta__nota" id="nota-patron"></p>
+      </header>
+      <div id="patron"></div>
+    </section>
+
+    <!-- 5. Trabajadores encontrados (visible tras validar) -->
+    <section class="tarjeta" id="seccion-trabajadores" aria-labelledby="titulo-trabajadores" hidden>
+      <header class="tarjeta__encabezado">
+        <h2 id="titulo-trabajadores">Trabajadores encontrados</h2>
+        <p class="tarjeta__nota" id="nota-trabajadores"></p>
+      </header>
+      <div class="tabla-contenedor" id="trabajadores"></div>
+    </section>
+
+    <!-- Acciones -->
+    <div class="barra-acciones">
+      <div>
+        <span class="tarjeta__paso">Paso 4 · Generación de contratos</span>
+        <p class="barra-acciones__nota" id="nota-acciones">Carga un archivo .xlsx para iniciar la validación.</p>
+        <div class="barra-acciones__campos">
+          <label class="campo">
+            <span class="campo__etiqueta">Fecha de firma</span>
+            <input type="date" id="fecha-firma">
+          </label>
+        </div>
+      </div>
+      <div class="barra-acciones__botones">
+        <button type="button" class="boton boton--primario" id="boton-validar">Validar información</button>
+        <button type="button" class="boton boton--acento" id="boton-generar" disabled
+                title="Disponible cuando la validación detecte al menos un trabajador">Generar contratos</button>
+      </div>
+    </div>
+
+    <!-- 6. Contratos generados (visible tras generar) -->
+    <section class="tarjeta" id="seccion-generados" aria-labelledby="titulo-generados" hidden>
+      <header class="tarjeta__encabezado">
+        <h2 id="titulo-generados">Contratos generados</h2>
+        <p class="tarjeta__nota" id="nota-generados"></p>
+      </header>
+      <ul class="lista-archivos" id="lista-generados"></ul>
+      <div class="generados__acciones">
+        <button type="button" class="boton boton--primario" id="boton-zip">Descargar contratos (.zip)</button>
+        <button type="button" class="boton boton--secundario" id="boton-abrir">Abrir carpeta</button>
+      </div>
+    </section>
+
+  </main>
+
+  <footer class="pie">
+    Oriens Abogados · Herramienta de uso interno
+    {% if direccion_red %}· Acceso en la red del despacho: {{ direccion_red }}{% endif %}
+    · <a href="{{ url_for('salir') }}">Salir</a>
+  </footer>
+
+  <script src="{{ url_for('static', filename='js/app.js', v='8') }}"></script>
+</body>
+</html>
