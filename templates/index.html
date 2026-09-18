@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ORIENS | Generador Inteligente de Contratos</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='10') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='12') }}">
 </head>
 <body data-limite-mb="{{ limite_mb }}" data-es-local="{{ '1' if es_local else '0' }}">
 
@@ -177,6 +177,7 @@
         <h2 id="titulo-perfiles">Puestos y perfiles</h2>
         <p class="tarjeta__nota" id="nota-perfiles"></p>
       </header>
+      <p class="mensaje" id="mensaje-perfiles" role="status" hidden></p>
       <div id="perfiles"></div>
     </section>
 
@@ -245,6 +246,6 @@
     · <a href="{{ url_for('salir') }}">Salir</a>
   </footer>
 
-  <script src="{{ url_for('static', filename='js/app.js', v='10') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js', v='12') }}"></script>
 </body>
 </html>
