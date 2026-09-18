@@ -38,6 +38,8 @@
     generar: $("boton-generar"),
     nota: $("nota-acciones"),
     fechaFirma: $("fecha-firma"),
+    modoFirma: $("modo-firma"),
+    campoFechaFirma: $("campo-fecha-firma"),
     seccionGenerados: $("seccion-generados"),
     notaGenerados: $("nota-generados"),
     listaGenerados: $("lista-generados"),
@@ -382,7 +384,10 @@
       partes.push(`${r.con_faltantes} trabajador(es) con datos faltantes: se escribirán como ${FALTANTE} ` +
                   "para completarlos a mano antes de firmar.");
     }
-    if (!ui.fechaFirma.value) partes.push(`No elegiste fecha de firma: quedará como ${FALTANTE}.`);
+    const conFechaUnica = ui.modoFirma.value === "fecha";
+    if (conFechaUnica && !ui.fechaFirma.value) {
+      partes.push(`No elegiste fecha de firma: quedará como ${FALTANTE}.`);
+    }
     if (partes.length && !window.confirm(`${partes.join("\n\n")}\n\n¿Deseas generar los contratos?`)) return;
 
     estado.generando = true;
@@ -390,7 +395,7 @@
     const datos = new FormData();
     datos.append("archivo", estado.archivo);
     datos.append("plantilla", ui.plantilla.value);
-    datos.append("fecha_firma", ui.fechaFirma.value);
+    datos.append("fecha_firma", conFechaUnica ? ui.fechaFirma.value : "imss");
 
     try {
       const json = await solicitar("/api/generar", { method: "POST", body: datos });
@@ -696,6 +701,9 @@
   /* ---------- Eventos ---------- */
 
   ui.plantilla.addEventListener("change", alCambiarPlantilla);
+  ui.modoFirma.addEventListener("change", () => {
+    ui.campoFechaFirma.hidden = ui.modoFirma.value !== "fecha";
+  });
   ui.subirPlantilla.addEventListener("click", () => entradaPlantilla.click());
   document.addEventListener("click", (e) => {
     const boton = e.target.closest(".boton-copiar");
