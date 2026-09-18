@@ -61,8 +61,7 @@ MARCAS_REGULARIZACION = [
     ("actividad principal es", {1: "{{ patron_actividad }}"}),
     # «con domicilio en ___ número ___, Colonia ___»: el Excel trae el domicilio en una sola columna.
     ("Mexicano de nacimiento", {1: "{{ edad }}", 2: "{{ estado_civil }}", (3, 5): "{{ domicilio }}",
-                                6: "{{ rfc }}", 7: "{{ curp }}", 8: "{{ seguro_social }}",
-                                9: "{{ credencial_elector }} "}),
+                                6: "{{ rfc }}", 7: "{{ curp }}", 8: "{{ seguro_social }}"}),
     ("adiestramiento, capacitación y experiencia", {1: "{{ experiencia }}"}),
     ("Declaran ambos contratantes con fecha", {1: "{{ fecha_ingreso_letra }}"}),
     ("PRIMERA. - Por virtud", {1: "{{ puesto }}", 2: "{{ actividad_1 }}"}),
@@ -82,6 +81,9 @@ MARCAS_REGULARIZACION = [
 # jornada solo de lunes a viernes (el sábado se reparte conforme al art. 59 LFT, como ya dice el contrato)
 # descanso para comida con la duración que indica el Excel, sin horas fijas, y horas semanales según el horario.
 REEMPLAZOS_REGULARIZACION = [
+    # Sin credencial de elector en los datos del cliente: la declaración termina con el número del IMSS.
+    (r"\s*identificándose con credencial para votar con fotografía numero _+\s*expedida a su favor por el "
+     r"Instituto Nacional Electoral INE\.", "."),
     # Horas semanales calculadas con el horario del Excel (lunes a viernes, sin el descanso para comida).
     (r"será de 48 horas a la semana", "será de {{ horas_semana }} horas a la semana"),
     (r"de lunes a viernes de las _+ horas\s+a las _+ horas y de las _+ a las _+ horas y los días sábados "
