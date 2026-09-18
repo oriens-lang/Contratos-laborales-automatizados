@@ -260,6 +260,8 @@ p { margin: 0; }
 }
 
 .mensaje--error { background: var(--error-tenue); border: 1px solid #efd4d4; color: var(--error); }
+.mensaje--exito { background: var(--exito-tenue); border: 1px solid #cfe3d8; color: var(--exito); }
+#mensaje-perfiles { margin: 0 0 12px; }
 
 /* ---------- Paneles: estado vacío, resumen, validación ---------- */
 
