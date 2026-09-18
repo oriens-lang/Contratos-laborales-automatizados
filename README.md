@@ -97,5 +97,6 @@ generador-contratos/
 
 ## Perfiles de puesto
 
-- Desde la pantalla, en «Puestos y perfiles», botón **Subir perfil** (o **Reemplazar**). Debe tener la sección «Cinco actividades principales» con cinco actividades numeradas.
+- Desde la pantalla, en «Puestos y perfiles», botón **Subir perfil** (o **Reemplazar**). Las actividades se toman de la sección o tabla «ACTIVIDADES PRINCIPALES» (o «Cinco actividades principales») o, si no existe, de la tabla «FUNCIONES DEL PUESTO»; se requieren al menos cinco. A la cláusula PRIMERA van las cinco primeras, en el orden del perfil; «ACTIVIDADES COMPLEMENTARIAS» no se usan.
+- El perfil completo va como ANEXO UNO: al subirlo, la aplicación avisa si incluye sueldos o rango de edad.
 - Se guardan como `Perfil de Puesto <puesto>.docx`. Solo el de demostración (Diseñadora) se publica en el repositorio.
