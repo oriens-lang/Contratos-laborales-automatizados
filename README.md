@@ -12,7 +12,7 @@ Flujo:
 1. **Plantilla del contrato:** elegir una de las guardadas o subir una nueva (no hay plantilla predeterminada; el Excel se habilita al elegirla).
 2. **Datos del Excel:** cargar el Excel del cliente (el **formato de captura** se descarga desde ese mismo paso).
 3. **Validar información** y subir los perfiles de puesto que falten.
-4. **Fecha de firma:** la FECHA ALTA IMSS de cada trabajador (predeterminada) o una misma fecha para todos → **Generar contratos** → **Descargar contratos (.zip)**.
+4. **Fecha de firma:** una misma fecha para todos (predeterminada) o la FECHA ALTA IMSS de cada trabajador (solo para contratos de nuevo ingreso; nunca en los de regularización) → **Generar contratos** → **Descargar contratos (.zip)**.
 
 ### Varias plantillas
 
@@ -86,7 +86,11 @@ generador-contratos/
 - **Colonia:** se completa con el municipio, porque la plantilla no tiene espacio propio para él.
 - **Cláusula CUARTA:** entrada, inicio y fin de comida y salida de lunes a viernes, y horario del sábado. Si faltan las columnas de entrada y salida, se toman las dos horas de JORNADA DE TRABAJO.
 - **Cláusula PRIMERA:** las cinco actividades del perfil del puesto; el perfil completo va como ANEXO UNO.
-- **Fecha y lugar de firma:** la FECHA ALTA IMSS de cada trabajador (o la fecha elegida en la pantalla); el lugar, cuando la plantilla lo usa, es el domicilio del patrón.
+- **Fecha y lugar de firma:** la fecha elegida en la pantalla (o la FECHA ALTA IMSS de cada trabajador); el lugar, cuando la plantilla lo usa, es el domicilio del patrón.
+- **Fecha de ingreso:** la columna FECHA DE INGRESO; si viene vacía, la FECHA ALTA IMSS (se anota en el resumen del lote).
+- **Horas a la semana:** `{{ horas_semana }}` = (salida − entrada − comida) × 5; p. ej., 8:30 a 18:00 con 30 minutos → 45.
+- **Edad:** `{{ edad }}` escribe «52 años de edad».
+- **Comida:** `{{ comida_duracion }}` escribe la duración que indica el Excel («30 min» → «30 minutos»).
 - **Domicilio en una sola columna** (DOMICILIO): se escribe tal como se capturó con `{{ domicilio }}`.
 - **Firma de la empresa:** nombre del representante legal y razón social (`{{ patron_representante }}`).
 - Lo que falte queda como `____________` y se lista en `Resumen de generación.txt`.
