@@ -28,7 +28,7 @@ from docxtpl import DocxTemplate
 from jinja2 import TemplateError
 
 from servicios.lector_excel import normalizar
-from servicios.mapeo_contrato import contexto_contrato, en_blanco, fecha_iso_con_letra
+from servicios.mapeo_contrato import FIRMA_ALTA_IMSS, contexto_contrato, en_blanco, fecha_iso_con_letra
 from servicios.perfiles import relacionar
 from servicios.validador import FALTANTE
 
@@ -96,7 +96,8 @@ def generar_contratos(libro: dict, plantilla: Path, carpeta_salidas: Path, archi
         f"Archivo de origen: {archivo_origen}",
         f"Plantilla: {plantilla.name}",
         "ANEXO UNO (perfil de puesto): " + ("sí" if con_anexo else "no; la plantilla no usa las actividades del perfil"),
-        f"Fecha de firma: {fecha_iso_con_letra(fecha_firma) or 'en blanco'}",
+        "Fecha de firma: " + ("la FECHA ALTA IMSS de cada trabajador" if fecha_firma == FIRMA_ALTA_IMSS
+                              else fecha_iso_con_letra(fecha_firma) or "en blanco"),
         f"Contratos generados: {len(contratos)}",
         "",
         f"Los datos faltantes se escribieron como {FALTANTE} y deben completarse antes de firmar.",
@@ -123,12 +124,22 @@ def revisar_plantilla(base: bytes) -> set[str]:
         raise ErrorGeneracion("La plantilla no es un documento Word (.docx) válido.") from error
 
     if not usados:
+        if re.search(r"_{3,}", _texto_de_docx(base)):
+            raise ErrorGeneracion(
+                "La plantilla todavía tiene líneas en blanco (____) y ningún marcador {{ campo }}: la aplicación "
+                "no sabe qué dato va en cada línea. Sustituye cada línea por su marcador (ver «Cómo preparar una "
+                "plantilla nueva») y vuelve a subirla.")
         raise ErrorGeneracion("La plantilla no contiene marcadores {{ campo }}; no hay dónde insertar los datos.")
     desconocidos = sorted(usados - disponibles)
     if desconocidos:
         lista = ", ".join("{{ " + d + " }}" for d in desconocidos)
         raise ErrorGeneracion(f"La plantilla usa marcadores que la aplicación no conoce: {lista}.")
     return usados
+
+
+def _texto_de_docx(base: bytes) -> str:
+    doc = Document(BytesIO(base))
+    return "\n".join(p.text for p in doc.paragraphs)
 
 
 def anexar_perfil(contrato: bytes, perfil: Path) -> bytes:

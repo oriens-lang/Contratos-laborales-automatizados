@@ -39,6 +39,8 @@ CAMPOS_TRABAJADOR = {
     "domicilio_calle": ("Domicilio: calle", ["DOMICILIO CALLE", "CALLE"]),
     "domicilio_colonia": ("Domicilio: colonia", ["DOMICILIO COLONIA", "COLONIA"]),
     "domicilio_municipio": ("Domicilio: municipio", ["DOMICILIO MUNICIPIO", "MUNICIPIO"]),
+    # Domicilio capturado en una sola columna (en lugar de calle, número, colonia y municipio).
+    "domicilio": ("Domicilio (completo)", ["DOMICILIO", "DOMICILIO COMPLETO"]),
     "credencial_elector": ("Credencial de elector",
                            ["CRED ELECTOR", "CREDENCIAL DE ELECTOR", "CREDENCIAL ELECTOR", "INE"]),
     "seguro_social": ("Seguro social", ["SEGURO SOCIAL", "NSS", "NUMERO DE SEGURO SOCIAL"]),
@@ -75,6 +77,7 @@ CAMPOS_PATRON = {
     "domicilio_colonia": ("Domicilio: colonia", ["DOMICILIO COLONIA", "COLONIA"]),
     "domicilio_municipio": ("Domicilio: municipio", ["DOMICILIO MUNICIPIO", "MUNICIPIO"]),
     "domicilio_cp": ("Código postal", ["DOMICILIO CODIGO POSTAL", "CODIGO POSTAL", "CP"]),
+    "domicilio_estado": ("Domicilio: estado", ["DOMICILIO ESTADO", "ESTADO"]),
     "representante_legal": ("Representante legal", ["REPRESENTANTE LEGAL"]),
     "acta_numero": ("Acta constitutiva: número", ["ACTA CONSTITUTIVA NUMERO"]),
     "acta_fecha": ("Acta constitutiva: fecha", ["ACTA CONSTITUTIVA FECHA"]),
@@ -83,6 +86,11 @@ CAMPOS_PATRON = {
     "notario_numero": ("Número del notario",
                        ["ACTA CONSTITUTIVA NUMERO NOTARIO", "NUMERO NOTARIO", "NUMERO DE NOTARIO"]),
     "acta_ciudad": ("Ciudad", ["ACTA CONSTITUTIVA CIUDAD", "CIUDAD"]),
+}
+
+# Formas alternativas de capturar el mismo dato: si el Excel usa una, no se reportan las otras como faltantes.
+ALTERNATIVAS = {
+    "domicilio": {"domicilio_calle", "domicilio_numero", "domicilio_colonia", "domicilio_municipio"},
 }
 
 # Campos que sí pueden contener fechas; en los demás, una fecha es un error de formato de la celda.
@@ -290,8 +298,21 @@ def _leer_hoja(hoja, catalogo: dict) -> dict | None:
         "ignoradas": ignoradas,
         "columnas_sin_encabezado": sorted(sin_encabezado, key=lambda l: (len(l), l)),
         "columnas_duplicadas": duplicadas,
-        "no_encontrados": [nombre for clave, (nombre, _) in catalogo.items() if clave not in usadas],
+        "no_encontrados": [nombre for clave, (nombre, _) in catalogo.items()
+                           if clave not in usadas and not _tiene_alternativa(clave, usadas, catalogo)],
     }
+
+
+def _tiene_alternativa(clave: str, usadas: set, catalogo: dict) -> bool:
+    """El dato viene capturado de otra forma (p. ej., domicilio completo en vez de calle, número…)."""
+    for completo, partes in ALTERNATIVAS.items():
+        if completo not in catalogo:
+            continue
+        if clave == completo and usadas & partes:
+            return True
+        if clave in partes and completo in usadas:
+            return True
+    return False
 
 
 def _motivo_para_ignorar(valores: dict, auxiliares: dict) -> str | None:
