@@ -12,7 +12,7 @@ Flujo:
 1. **Plantilla del contrato:** elegir una de las guardadas o subir una nueva (no hay plantilla predeterminada; el Excel se habilita al elegirla).
 2. **Datos del Excel:** cargar el Excel del cliente (el **formato de captura** se descarga desde ese mismo paso).
 3. **Validar información** y subir los perfiles de puesto que falten.
-4. Elegir la **fecha de firma** → **Generar contratos** → **Descargar contratos (.zip)**.
+4. **Fecha de firma:** la FECHA ALTA IMSS de cada trabajador (predeterminada) o una misma fecha para todos → **Generar contratos** → **Descargar contratos (.zip)**.
 
 ### Varias plantillas
 
@@ -27,6 +27,8 @@ El formato de contrato del despacho no se publica. Para instalar la aplicación 
 ```bash
 .venv/bin/python plantillas/marcar_plantilla.py
 ```
+
+Variante de regularización (relaciones de trabajo ya vigentes): copia su formato como `plantillas/FORMATO CONTRATO TIEMPO INDETERMINADO REGULARIZACION (original).docx` y ejecuta `marcar_plantilla.py regularizacion`.
 
 Para cambiar el texto de la plantilla, ver `plantillas/LEEME.md`.
 
@@ -84,7 +86,9 @@ generador-contratos/
 - **Colonia:** se completa con el municipio, porque la plantilla no tiene espacio propio para él.
 - **Cláusula CUARTA:** entrada, inicio y fin de comida y salida de lunes a viernes, y horario del sábado. Si faltan las columnas de entrada y salida, se toman las dos horas de JORNADA DE TRABAJO.
 - **Cláusula PRIMERA:** las cinco actividades del perfil del puesto; el perfil completo va como ANEXO UNO.
-- **Fecha de firma:** la que se elige en la pantalla.
+- **Fecha y lugar de firma:** la FECHA ALTA IMSS de cada trabajador (o la fecha elegida en la pantalla); el lugar, cuando la plantilla lo usa, es el domicilio del patrón.
+- **Domicilio en una sola columna** (DOMICILIO): se escribe tal como se capturó con `{{ domicilio }}`.
+- **Firma de la empresa:** nombre del representante legal y razón social (`{{ patron_representante }}`).
 - Lo que falte queda como `____________` y se lista en `Resumen de generación.txt`.
 
 ## Perfiles de puesto
