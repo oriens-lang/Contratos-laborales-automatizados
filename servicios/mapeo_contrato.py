@@ -43,6 +43,8 @@ MARCADORES = {
     "lv_entrada": "hora de entrada de lunes a viernes",
     "comida_inicio": "inicio del horario de comida",
     "comida_fin": "fin del horario de comida",
+    "comida_duracion": "duración de la comida («30 minutos»)",
+    "horas_semana": "horas de trabajo a la semana (lunes a viernes, sin la comida)",
     "lv_salida": "hora de salida de lunes a viernes",
     "sabado_entrada": "hora de entrada del sábado",
     "sabado_salida": "hora de salida del sábado",
@@ -89,7 +91,7 @@ def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
         "experiencia": dato(trabajador, "puesto"),
         "fecha_nacimiento_letra": _interpretar(trabajador, "fecha_nacimiento", _fecha_con_letra,
                                                "FECHA DE NACIMIENTO", avisos),
-        "fecha_ingreso_letra": _interpretar(trabajador, "fecha_ingreso", _fecha_con_letra, "FECHA DE INGRESO", avisos),
+        "fecha_ingreso_letra": _fecha_de_ingreso(trabajador, avisos),
         "salario_diario": _interpretar(trabajador, "salario_numero", _importe, "SALARIO DIARIO IMSS (número)", avisos),
         "salario_letra": _interpretar(trabajador, "salario_letra", _letra_sin_fraccion,
                                       "SALARIO DIARIO IMSS (letra)", avisos),
@@ -98,8 +100,13 @@ def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
         "lugar_firma": _domicilio_patron(patron),
     }
 
-    horas = _interpretar(trabajador, "horario_comida", _dos_horas, "HORARIO DE COMIDA", avisos)
-    contexto["comida_inicio"], contexto["comida_fin"] = horas if horas != FALTANTE else (FALTANTE, FALTANTE)
+    comida = trabajador.get("horario_comida")
+    horas = _dos_horas(comida) if comida else None
+    contexto["comida_inicio"], contexto["comida_fin"] = horas or (FALTANTE, FALTANTE)
+    contexto["comida_duracion"] = _duracion(comida) if comida else None
+    if comida and not (horas or contexto["comida_duracion"]):
+        avisos.append(f"No se pudo interpretar HORARIO DE COMIDA («{comida}»); se dejó en blanco.")
+    contexto["comida_duracion"] = contexto["comida_duracion"] or FALTANTE
 
     # Entrada y salida de lunes a viernes: columnas propias o, si no existen, las dos horas de JORNADA.
     entrada, salida = trabajador.get("lv_entrada"), trabajador.get("lv_salida")
@@ -111,6 +118,7 @@ def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
             avisos.append(f"No se pudo interpretar JORNADA DE TRABAJO («{trabajador['jornada']}»); "
                           "el horario de la cláusula CUARTA quedó en blanco.")
     contexto["lv_entrada"], contexto["lv_salida"] = entrada or FALTANTE, salida or FALTANTE
+    contexto["horas_semana"] = _horas_semana(entrada, salida, contexto["comida_duracion"])
 
     for n in range(1, 6):
         contexto[f"actividad_{n}"] = actividades[n - 1] if n <= len(actividades) else FALTANTE
@@ -126,6 +134,16 @@ def en_blanco(contexto: dict, usados: set[str] | None = None) -> list[str]:
 def fecha_iso_con_letra(texto: str) -> str | None:
     """'2026-09-12' → '12 de septiembre de 2026' (para mostrar la fecha de firma elegida)."""
     return _fecha_iso_con_letra(texto)
+
+
+def _fecha_de_ingreso(trabajador: dict, avisos: list[str]) -> str:
+    """FECHA DE INGRESO; si el Excel no la trae, la FECHA ALTA IMSS (criterio del despacho)."""
+    if trabajador.get("fecha_ingreso") or not trabajador.get("fecha_alta_imss"):
+        return _interpretar(trabajador, "fecha_ingreso", _fecha_con_letra, "FECHA DE INGRESO", avisos)
+    fecha = _interpretar(trabajador, "fecha_alta_imss", _fecha_con_letra, "FECHA ALTA IMSS (fecha de ingreso)", avisos)
+    if fecha != FALTANTE:
+        avisos.append("Sin FECHA DE INGRESO en el Excel: se usó la FECHA ALTA IMSS.")
+    return fecha
 
 
 def _fecha_de_firma(trabajador: dict, fecha_firma: str, avisos: list[str]) -> str:
@@ -212,6 +230,41 @@ def _letra_sin_fraccion(texto: str) -> str | None:
     """La plantilla ya escribe «/100 M.N.)»: 'SEISCIENTOS VEINTE PESOS 00/100 M.N.' → '… PESOS 00'."""
     limpio = re.sub(r"\s*/\s*100\s*M\.?\s*N\.?\s*\)?\s*$", "", texto.strip(), flags=re.IGNORECASE)
     return limpio if limpio != texto.strip() else None
+
+
+def _duracion(texto: str) -> str | None:
+    """'30 min' → '30 minutos'; '1 hora' → '60 minutos'; '14:00 a 14:30' → '30 minutos'."""
+    horas = _dos_horas(texto)
+    if horas:
+        (h1, m1), (h2, m2) = (map(int, h.split(":")) for h in horas)
+        minutos = (h2 * 60 + m2) - (h1 * 60 + m1)
+        return f"{minutos} minutos" if minutos > 0 else None
+    if re.fullmatch(r"\s*media\s+hora\s*", texto, re.I):
+        return "30 minutos"
+    coincidencia = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*(m|min|mins|minutos?|h|hr|hrs|horas?)\.?\s*", texto, re.I)
+    if not coincidencia:
+        return None
+    cantidad = float(coincidencia.group(1).replace(",", "."))
+    minutos = cantidad * 60 if coincidencia.group(2).lower().startswith("h") else cantidad
+    return f"{minutos:g} minutos" if minutos > 0 else None
+
+
+def _horas_semana(entrada: str | None, salida: str | None, comida: str) -> str:
+    """(salida − entrada − comida) × 5 días: 8:30 a 18:00 con 30 minutos de comida → '45'.
+
+    El descanso no se cuenta porque el trabajador puede salir del centro de trabajo (art. 64 LFT).
+    """
+    minutos = [_minutos_del_dia(h) for h in (entrada, salida)]
+    duracion = re.fullmatch(r"(\d+(?:\.\d+)?) minutos", comida)
+    if None in minutos or not duracion:
+        return FALTANTE
+    diarias = (minutos[1] - minutos[0] - float(duracion.group(1))) / 60
+    return f"{diarias * 5:g}" if diarias > 0 else FALTANTE
+
+
+def _minutos_del_dia(hora: str | None) -> int | None:
+    coincidencia = re.fullmatch(r"\s*(\d{1,2}):(\d{2})\s*", hora or "")
+    return int(coincidencia.group(1)) * 60 + int(coincidencia.group(2)) if coincidencia else None
 
 
 def _dos_horas(texto: str) -> tuple[str, str] | None:
