@@ -65,14 +65,11 @@ MARCAS_REGULARIZACION = [
                                 9: "{{ credencial_elector }} "}),
     ("adiestramiento, capacitación y experiencia", {1: "{{ experiencia }}"}),
     ("Declaran ambos contratantes con fecha", {1: "{{ fecha_ingreso_letra }}"}),
-    ("de lunes a viernes de las", {1: "{{ lv_entrada }}", 2: "{{ comida_inicio }}", 3: "{{ comida_fin }}",
-                                   4: "{{ lv_salida }}", 5: "{{ sabado_entrada }}", 6: "{{ sabado_salida }}"}),
     ("PRIMERA. - Por virtud", {1: "{{ puesto }}", 2: "{{ actividad_1 }}"}),
     ("2.  _", {1: "{{ actividad_2 }}"}),
     ("3. _", {1: "{{ actividad_3 }}"}),
     ("4. _", {1: "{{ actividad_4 }}"}),
     ("5. _", {1: "{{ actividad_5 }}"}),
-    ("interrumpida durante 60 minutos", {1: "{{ comida_inicio }}", 2: "{{ comida_fin }}"}),
     ("salario diario de $", {1: "{{ salario_diario }}", 2: "{{ salario_letra }}"}),
     ("siendo este _", {1: "{{ correo }}"}),
     ("fecha de ingreso del trabajador fue el día", {1: "{{ fecha_ingreso_letra }}"}),
@@ -81,11 +78,26 @@ MARCAS_REGULARIZACION = [
     ("Representante legal de", {1: "{{ patron_razon_social }}"}),
 ]
 
+# Cambios de redacción autorizados por el abogado responsable (patrón → texto nuevo), además de las marcas:
+# jornada solo de lunes a viernes (el sábado se reparte conforme al art. 59 LFT, como ya dice el contrato)
+# descanso para comida con la duración que indica el Excel, sin horas fijas, y horas semanales según el horario.
+REEMPLAZOS_REGULARIZACION = [
+    # Horas semanales calculadas con el horario del Excel (lunes a viernes, sin el descanso para comida).
+    (r"será de 48 horas a la semana", "será de {{ horas_semana }} horas a la semana"),
+    (r"de lunes a viernes de las _+ horas\s+a las _+ horas y de las _+ a las _+ horas y los días sábados "
+     r"de las _+ horas a las _+ horas\s*$",
+     "de lunes a viernes de las {{ lv_entrada }} horas a las {{ lv_salida }} horas."),
+    (r"interrumpida durante 60 minutos, todos\s+los días laborables,\s+comprendiendo de las _+\s+horas "
+     r"a las _+\s+horas, durante",
+     "interrumpida durante {{ comida_duracion }}, todos los días laborables, durante"),
+]
+
 FORMATOS = {
     "oficial": {
         "original": CARPETA / "FORMATO CONTRATO TIEMPO INDETERMINADO (original).docx",
         "destino": CARPETA / "Contrato tiempo indeterminado (marcado).docx",
         "marcas": MARCAS_OFICIAL,
+        "reemplazos": [],
         "firma_con_nombre": True,
         "representante_en_firma": False,
     },
@@ -93,6 +105,7 @@ FORMATOS = {
         "original": CARPETA / "FORMATO CONTRATO TIEMPO INDETERMINADO REGULARIZACION (original).docx",
         "destino": CARPETA / "Contrato tiempo indeterminado regularización (marcado).docx",
         "marcas": MARCAS_REGULARIZACION,
+        "reemplazos": REEMPLAZOS_REGULARIZACION,
         "firma_con_nombre": False,  # el formato no trae «(NOMBRE COMPLETO DEL TRABAJADOR )»
         # Bajo la línea de firma de la empresa: nombre del representante legal y, debajo, la razón social.
         "representante_en_firma": True,
@@ -114,10 +127,22 @@ def reemplazar_linea(parrafo, numero, texto_nuevo: str) -> None:
     Con numero = (a, b) sustituye desde la línea a hasta la b, incluido el texto entre ellas.
     """
     primera, ultima = numero if isinstance(numero, tuple) else (numero, numero)
+    lineas = list(re.finditer(r"_+", "".join(run.text for run in parrafo.runs)))
+    reemplazar_tramo(parrafo, lineas[primera - 1].start(), lineas[ultima - 1].end(), texto_nuevo)
+
+
+def reemplazar_texto(parrafo, patron: str, texto_nuevo: str) -> None:
+    """Sustituye el texto que coincide con el patrón, aunque esté repartido en varios runs."""
+    coincidencia = re.search(patron, "".join(run.text for run in parrafo.runs))
+    if not coincidencia:
+        sys.exit(f"ERROR: no se encontró el texto a sustituir: {patron!r}")
+    reemplazar_tramo(parrafo, coincidencia.start(), coincidencia.end(), texto_nuevo)
+
+
+def reemplazar_tramo(parrafo, inicio: int, fin: int, texto_nuevo: str) -> None:
+    """Sustituye los caracteres [inicio, fin) del párrafo; el texto nuevo toma el formato del primer run."""
     runs = parrafo.runs
     textos = [run.text for run in runs]
-    lineas = list(re.finditer(r"_+", "".join(textos)))
-    inicio, fin = lineas[primera - 1].start(), lineas[ultima - 1].end()
     posicion, colocado = 0, False
     for run, texto in zip(runs, textos):
         a, b = posicion, posicion + len(texto)
@@ -163,6 +188,12 @@ def marcar(formato: dict) -> None:
         # De atrás hacia adelante para que la numeración de las líneas no cambie.
         for numero in sorted(lineas, key=lambda n: n if isinstance(n, tuple) else (n, n), reverse=True):
             reemplazar_linea(encontrados[0], numero, lineas[numero])
+
+    for patron, texto_nuevo in formato["reemplazos"]:
+        encontrados = [p for p in parrafos if re.search(patron, p.text)]
+        if len(encontrados) != 1:
+            sys.exit(f"ERROR: el texto {patron!r} aparece {len(encontrados)} veces; se esperaba 1.")
+        reemplazar_texto(encontrados[0], patron, texto_nuevo)
 
     # Campo de combinación «BENEFICIARIOS» en la tabla de la cláusula VIGÉSIMA.
     if not any(reemplazar_campo_combinacion(p, "BENEFICIARIOS", "{{ beneficiarios }}") for p in parrafos):
