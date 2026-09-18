@@ -4,9 +4,12 @@ Cada perfil se guarda en la carpeta «perfiles de puesto» con el nombre
 «Perfil de Puesto <nombre del puesto>.docx». El puesto se compara sin distinguir
 mayúsculas, acentos ni espacios repetidos («Diseñadora» = «DISEÑADORA»).
 
-De cada perfil se toman, sin modificarlas, las cinco actividades de la sección
-«Cinco actividades principales». Solo se quita el número de lista («1. ») porque
-la cláusula PRIMERA del contrato ya numera los cinco espacios.
+De cada perfil se toman, sin modificarlas, las actividades de la sección o tabla
+«ACTIVIDADES PRINCIPALES» (también «Cinco actividades principales») o, si no existe,
+de la tabla «FUNCIONES DEL PUESTO». Las «ACTIVIDADES COMPLEMENTARIAS» no se usan en el
+contrato. A la cláusula PRIMERA van las cinco primeras, en el orden del perfil;
+el perfil completo va como ANEXO UNO. Solo se quita el número de lista («1. »)
+porque la cláusula PRIMERA del contrato ya numera los cinco espacios.
 """
 from __future__ import annotations
 
@@ -22,7 +25,15 @@ from servicios.lector_excel import normalizar
 ACTIVIDADES_REQUERIDAS = 5
 PATRON_NOMBRE = re.compile(r"^\s*perfil\s+de\s+puesto\s+(.+?)\s*$", re.IGNORECASE)
 PATRON_ENUMERACION = re.compile(r"^\s*(\d+)\s*[.)]\s*(.+)$", re.DOTALL)
-SECCION_ACTIVIDADES = "CINCO ACTIVIDADES PRINCIPALES"
+SECCION_ACTIVIDADES = "ACTIVIDADES PRINCIPALES"  # incluye «Cinco actividades principales»
+# Título (primera fila) de la tabla de actividades, en orden de preferencia.
+TITULOS_TABLA = ("ACTIVIDADES PRINCIPALES", "FUNCIONES PRINCIPALES", "FUNCIONES", "ACTIVIDADES")
+EXCLUIDAS = "COMPLEMENTARIA"
+SUBTITULOS_PRINCIPALES = {"ACTIVIDADES PRINCIPALES", "FUNCIONES PRINCIPALES", "CINCO ACTIVIDADES PRINCIPALES"}  # «ACTIVIDADES/FUNCIONES COMPLEMENTARIAS» no van a la cláusula PRIMERA
+# Datos que no conviene anexar al contrato: se avisan al subir el perfil.
+# (patrón sobre el texto normalizado, descripción). El rango de edad solo si fija años («Indistinto» no).
+DATOS_SENSIBLES = [(r"\bSUELDO", "sueldos"), (r"\bSALARIO", "salarios"),
+                   (r"RANGO DE EDAD\s+(DE\s+)?\d", "rango de edad")]
 
 
 class ErrorPerfil(Exception):
@@ -40,11 +51,12 @@ def cargar_catalogo(carpeta: Path) -> dict[str, dict]:
             continue
         puesto = coincidencia.group(1)
         try:
-            actividades, error = extraer_actividades(ruta), None
+            todas, error = extraer_actividades(ruta), None
         except ErrorPerfil as problema:
-            actividades, error = [], str(problema)
+            todas, error = [], str(problema)
         catalogo[normalizar(puesto)] = {
-            "puesto": puesto, "archivo": ruta, "actividades": actividades, "error": error,
+            "puesto": puesto, "archivo": ruta, "actividades": todas[:ACTIVIDADES_REQUERIDAS],
+            "total_actividades": len(todas), "error": error,
         }
     return catalogo
 
@@ -58,7 +70,8 @@ def guardar_perfil(carpeta: Path, puesto: str, contenido: bytes) -> dict:
     puesto = re.sub(r"\s+", " ", puesto).strip(" .")
     if not puesto:
         raise ErrorPerfil("falta el nombre del puesto")
-    actividades = extraer_actividades(BytesIO(contenido))  # si no hay cinco actividades, no se guarda
+    todas = extraer_actividades(BytesIO(contenido))  # si no hay al menos cinco actividades, no se guarda
+    advertencias = datos_sensibles(BytesIO(contenido))
 
     carpeta.mkdir(parents=True, exist_ok=True)
     destino = carpeta / f"Perfil de Puesto {puesto}.docx"
@@ -67,19 +80,36 @@ def guardar_perfil(carpeta: Path, puesto: str, contenido: bytes) -> dict:
         if coincidencia and normalizar(coincidencia.group(1)) == normalizar(puesto) and ruta != destino:
             ruta.unlink()
     destino.write_bytes(contenido)
-    return {"puesto": puesto, "archivo": destino.name, "actividades": actividades}
+    return {"puesto": puesto, "archivo": destino.name, "actividades": todas[:ACTIVIDADES_REQUERIDAS],
+            "total_actividades": len(todas), "advertencias": advertencias}
+
+
+def datos_sensibles(origen: Union[Path, BinaryIO]) -> list[str]:
+    """Datos del perfil que pasarían al contrato en el ANEXO UNO y conviene revisar (sueldo, edad)."""
+    documento = Document(origen)
+    textos = [p.text for p in documento.paragraphs]
+    textos += [c.text for t in documento.tables for fila in t.rows for c in fila.cells]
+    completo = normalizar(" ".join(textos))
+    return [descripcion for patron, descripcion in DATOS_SENSIBLES if re.search(patron, completo)]
 
 
 def extraer_actividades(origen: Union[Path, BinaryIO]) -> list[str]:
-    """Las actividades numeradas que siguen al título «Cinco actividades principales»."""
+    """Todas las actividades del perfil, en su orden (se exigen al menos cinco)."""
     try:
-        parrafos = Document(origen).paragraphs
+        documento = Document(origen)
     except Exception as error:  # archivo dañado o que no es Word
         raise ErrorPerfil("el archivo no es un documento Word (.docx) válido") from error
 
-    inicio = next((i for i, p in enumerate(parrafos) if SECCION_ACTIVIDADES in normalizar(p.text)), None)
+    parrafos = documento.paragraphs
+    # Título de sección: renglón corto (no una frase del texto) que menciona las actividades principales.
+    inicio = next((i for i, p in enumerate(parrafos)
+                   if SECCION_ACTIVIDADES in normalizar(p.text) and len(p.text.strip()) <= 60), None)
     if inicio is None:
-        raise ErrorPerfil("no tiene la sección «Cinco actividades principales»")
+        actividades = _actividades_de_tabla(documento)
+        if actividades is None:
+            raise ErrorPerfil("no se encontraron sus actividades: debe tener un apartado «ACTIVIDADES "
+                              "PRINCIPALES» o una tabla «FUNCIONES DEL PUESTO»")
+        return _exigir_minimo(actividades, "la tabla de actividades")
 
     actividades = []
     for parrafo in parrafos[inicio + 1:]:
@@ -97,9 +127,70 @@ def extraer_actividades(origen: Union[Path, BinaryIO]) -> list[str]:
         else:  # siguiente título u otro contenido: termina la lista
             break
 
-    if len(actividades) != ACTIVIDADES_REQUERIDAS:
-        raise ErrorPerfil(f"la sección «Cinco actividades principales» tiene {len(actividades)} "
-                          f"actividades numeradas; se requieren {ACTIVIDADES_REQUERIDAS}")
+    return _exigir_minimo(actividades, "la sección «Cinco actividades principales»")
+
+
+def _actividades_de_tabla(documento) -> list[str] | None:
+    """Actividades de las tablas del perfil.
+
+    1.º Las filas bajo un subtítulo «ACTIVIDADES PRINCIPALES» (p. ej., dentro de la tabla
+        «VI. ACTIVIDADES DEL PUESTO»), hasta «ACTIVIDADES COMPLEMENTARIAS» u otro subtítulo.
+    2.º Si no hay ese subtítulo, las filas de la tabla cuyo título es «FUNCIONES DEL PUESTO»,
+        «ACTIVIDADES…», etc., sin las complementarias.
+    """
+    tablas = [_filas(t) for t in documento.tables]
+    for filas in tablas:
+        for n, fila in enumerate(filas):
+            if _titulo(fila) in SUBTITULOS_PRINCIPALES:
+                return _lista(filas[n + 1:])
+    candidatas = []
+    for filas in tablas:
+        if not filas:
+            continue
+        titulo = _titulo(filas[0])
+        prioridad = next((n for n, t in enumerate(TITULOS_TABLA) if titulo.startswith(t)), None)
+        if prioridad is not None and EXCLUIDAS not in titulo:
+            candidatas.append((prioridad, filas))
+    if not candidatas:
+        return None
+    return _lista(min(candidatas, key=lambda c: c[0])[1][1:])
+
+
+def _filas(tabla) -> list[str]:
+    """Texto de cada fila (las celdas combinadas se repiten en python-docx: se toman una vez)."""
+    filas = []
+    for fila in tabla.rows:
+        textos = dict.fromkeys(c.text.strip() for c in fila.cells if c.text.strip())
+        filas.append(" ".join(textos))
+    return filas
+
+
+def _titulo(texto: str) -> str:
+    """Texto normalizado sin el numeral romano del apartado: «VI.   ACTIVIDADES DEL PUESTO» → «ACTIVIDADES DEL PUESTO»."""
+    return re.sub(r"^[IVXLC]+\s+", "", normalizar(texto))
+
+
+def _es_subtitulo(texto: str) -> bool:
+    """Renglón corto en mayúsculas y sin numerar, p. ej. «ACTIVIDADES COMPLEMENTARIAS»."""
+    return texto.isupper() and len(texto) <= 60 and not PATRON_ENUMERACION.match(texto)
+
+
+def _lista(filas: list[str]) -> list[str]:
+    actividades = []
+    for texto in filas:
+        if not texto:
+            continue
+        if EXCLUIDAS in normalizar(texto) or _es_subtitulo(texto):
+            break
+        enumerada = PATRON_ENUMERACION.match(texto)
+        actividades.append(enumerada.group(2).strip() if enumerada else texto)
+    return actividades
+
+
+def _exigir_minimo(actividades: list[str], donde: str) -> list[str]:
+    if len(actividades) < ACTIVIDADES_REQUERIDAS:
+        raise ErrorPerfil(f"{donde} tiene {len(actividades)} actividades; se requieren al menos "
+                          f"{ACTIVIDADES_REQUERIDAS}")
     return actividades
 
 
