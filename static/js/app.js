@@ -34,6 +34,7 @@
     seccionPerfiles: $("seccion-perfiles"),
     perfiles: $("perfiles"),
     notaPerfiles: $("nota-perfiles"),
+    mensajePerfiles: $("mensaje-perfiles"),
     validar: $("boton-validar"),
     generar: $("boton-generar"),
     nota: $("nota-acciones"),
@@ -456,23 +457,41 @@
     entradaPerfil.click();
   }
 
+  // El resultado se muestra en la propia sección de perfiles (y el error, además, en una ventana).
+  function avisoPerfiles(texto, tipo) {
+    ui.mensajePerfiles.textContent = texto;
+    ui.mensajePerfiles.className = `mensaje mensaje--${tipo}`;
+    ui.mensajePerfiles.hidden = false;
+    ui.mensajePerfiles.scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+
   async function subirPerfil(archivo) {
     const puesto = estado.puestoPerfil;
     if (!puesto) return;
     if (!archivo.name.toLowerCase().endsWith(".docx")) {
-      avisar("El perfil debe ser un documento Word (.docx).", true);
+      avisoPerfiles(`«${archivo.name}» no es un documento Word (.docx).`, "error");
+      window.alert(`El perfil debe ser un documento Word (.docx).\n\n«${archivo.name}» no se cargó.`);
       return;
     }
     const datos = new FormData();
     datos.append("puesto", puesto);
     datos.append("archivo", archivo);
-    avisar(`Cargando el perfil de «${puesto}»…`);
+    avisoPerfiles(`Cargando el perfil de «${puesto}»…`, "aviso");
     try {
       const json = await solicitar("/api/perfiles", { method: "POST", body: datos });
       await validar();  // vuelve a relacionar puestos y perfiles con el perfil nuevo
-      avisar(`Perfil de «${json.puesto}» cargado (${json.actividades.length} actividades). ${ui.nota.textContent}`);
+      const cuantas = json.total_actividades > json.actividades.length
+        ? `${json.total_actividades} actividades; a la cláusula PRIMERA van las ${json.actividades.length} primeras ` +
+          "y el perfil completo va como ANEXO UNO"
+        : `${json.actividades.length} actividades`;
+      const sensibles = (json.advertencias || []).length
+        ? ` Atención: el perfil incluye ${json.advertencias.join(", ")}; irá tal cual en el ANEXO UNO del contrato.`
+        : "";
+      avisoPerfiles(`Perfil de «${json.puesto}» cargado (${cuantas}).${sensibles}`, sensibles ? "aviso" : "exito");
     } catch (error) {
-      avisar(errorLegible(error), true);
+      const texto = `«${archivo.name}» no se cargó como perfil de «${puesto}». ${errorLegible(error)}`;
+      avisoPerfiles(texto, "error");
+      window.alert(texto);
     }
   }
 
