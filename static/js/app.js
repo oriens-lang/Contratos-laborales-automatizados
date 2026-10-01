@@ -39,6 +39,7 @@
     generar: $("boton-generar"),
     nota: $("nota-acciones"),
     fechaFirma: $("fecha-firma"),
+    lugarFirma: $("lugar-firma"),
     modoFirma: $("modo-firma"),
     campoFechaFirma: $("campo-fecha-firma"),
     seccionGenerados: $("seccion-generados"),
@@ -339,6 +340,8 @@
       pintarValidacion(json.validacion);
       pintarPerfiles(json.perfiles);
       pintarPatron(json.patron);
+      // El lugar de firma se propone con el del Excel; se puede cambiar antes de generar.
+      if (!ui.lugarFirma.value && json.patron && json.patron.lugar) ui.lugarFirma.value = json.patron.lugar;
       pintarTrabajadores(json.trabajadores);
       ui.generar.disabled = !json.puede_generar;
       marcarPaso(pasoActual());
@@ -397,6 +400,7 @@
     datos.append("archivo", estado.archivo);
     datos.append("plantilla", ui.plantilla.value);
     datos.append("fecha_firma", conFechaUnica ? ui.fechaFirma.value : "imss");
+    datos.append("lugar_firma", ui.lugarFirma.value.trim());
 
     try {
       const json = await solicitar("/api/generar", { method: "POST", body: datos });
