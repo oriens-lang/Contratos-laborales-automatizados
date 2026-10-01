@@ -41,7 +41,7 @@ class ErrorGeneracion(Exception):
 
 
 def generar_contratos(libro: dict, plantilla: Path, carpeta_salidas: Path, archivo_origen: str,
-                      catalogo: dict[str, dict], fecha_firma: str = "") -> dict:
+                      catalogo: dict[str, dict], fecha_firma: str = "", lugar_firma: str = "") -> dict:
     """Genera un .docx por trabajador en una carpeta nueva dentro de carpeta_salidas."""
     if not plantilla.is_file():
         raise ErrorGeneracion(f"No se encontró la plantilla del contrato ({plantilla.name}).")
@@ -66,7 +66,7 @@ def generar_contratos(libro: dict, plantilla: Path, carpeta_salidas: Path, archi
         clave = normalizar(reg["valores"].get("puesto", ""))
         perfil = catalogo[clave] if con_anexo and clave in con_perfil else None
         contexto, avisos = contexto_contrato(reg["valores"], valores_p,
-                                             perfil["actividades"] if perfil else [], fecha_firma)
+                                             perfil["actividades"] if perfil else [], fecha_firma, lugar_firma)
 
         doc = DocxTemplate(BytesIO(base))
         doc.render(contexto, autoescape=True)
@@ -96,6 +96,7 @@ def generar_contratos(libro: dict, plantilla: Path, carpeta_salidas: Path, archi
         f"Archivo de origen: {archivo_origen}",
         f"Plantilla: {plantilla.name}",
         "ANEXO UNO (perfil de puesto): " + ("sí" if con_anexo else "no; la plantilla no usa las actividades del perfil"),
+        f"Lugar de firma: {lugar_firma.strip() or 'el municipio y estado del patrón'}",
         "Fecha de firma: " + ("la FECHA ALTA IMSS de cada trabajador" if fecha_firma == FIRMA_ALTA_IMSS
                               else fecha_iso_con_letra(fecha_firma) or "en blanco"),
         f"Contratos generados: {len(contratos)}",

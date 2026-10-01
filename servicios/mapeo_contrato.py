@@ -66,7 +66,7 @@ DIRECTOS = ("nombre", "lugar_nacimiento", "sexo", "estado_civil", "domicilio_cal
 
 
 def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
-                      fecha_firma: str = "") -> tuple[dict, list[str]]:
+                      fecha_firma: str = "", lugar_firma: str = "") -> tuple[dict, list[str]]:
     """Valores de los marcadores y avisos de datos que existen pero no se pudieron interpretar.
 
     fecha_firma llega de la pantalla: AAAA-MM-DD (una fecha para todos), «imss» (la FECHA ALTA
@@ -96,8 +96,8 @@ def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
         "salario_letra": _interpretar(trabajador, "salario_letra", _letra_sin_fraccion,
                                       "SALARIO DIARIO IMSS (letra)", avisos),
         "fecha_firma_letra": _fecha_de_firma(trabajador, fecha_firma, avisos),
-        # El contrato se firma donde está el patrón: municipio y estado.
-        "lugar_firma": _lugar_del_patron(patron),
+        # Lugar de firma: el que se escribió en la pantalla o, si no, el del patrón.
+        "lugar_firma": lugar_firma.strip() or _lugar_del_patron(patron),
     }
 
     comida = trabajador.get("horario_comida")

@@ -25,6 +25,8 @@ REGLAS_PATRON = {
     "rfc": (r"[A-ZÑ&]{3,4}\d{6}[A-Z0-9]{3}", "El RFC del patrón no tiene una estructura válida"),
 }
 CAMPOS_SIN_ESPACIOS = {"curp", "rfc", "seguro_social"}
+# Dato que se toma de otra columna cuando viene vacío: no es un faltante, pero se avisa.
+SUSTITUTOS = {"fecha_ingreso": ("fecha_alta_imss", "FECHA DE INGRESO", "FECHA ALTA IMSS")}
 CAMPOS_UNICOS = {"curp": "La CURP", "rfc": "El RFC", "seguro_social": "El número de seguro social"}
 
 
@@ -40,11 +42,16 @@ def validar_libro(libro: dict, catalogo: dict[str, dict]) -> dict:
     registros, por_trabajador = [], []
     for reg in hoja_t["registros"]:
         valores = reg["valores"]
-        faltantes = [col["clave"] for col in hoja_t["columnas"] if not valores.get(col["clave"])]
+        sustituidos = {clave: SUSTITUTOS[clave] for clave in SUSTITUTOS
+                       if not valores.get(clave) and valores.get(SUSTITUTOS[clave][0])}
+        faltantes = [col["clave"] for col in hoja_t["columnas"]
+                     if not valores.get(col["clave"]) and col["clave"] not in sustituidos]
         advertencias = [
             f"«{etiquetas[clave]}» contiene el texto del formato («{texto}»), no un dato."
-            for clave, texto in reg["auxiliares"].items()
+            for clave, texto in reg["auxiliares"].items() if clave not in sustituidos
         ]
+        advertencias += [f"Sin {origen}: se usará la {sustituta} ({valores[clave_sustituta]})."
+                         for clave, (clave_sustituta, origen, sustituta) in sustituidos.items()]
         advertencias += _revisar_formatos(valores, REGLAS_TRABAJADOR)
         advertencias += duplicados.get(reg["fila"], [])
 
@@ -167,6 +174,8 @@ def _armar_patron(hoja_p: dict | None):
         "fila": registro["fila"] if registro else None,
         "encontrado": registro is not None,
         "razon_social": valores.get("razon_social"),
+        # Lugar de firma que se propone en la pantalla; ahí se puede cambiar.
+        "lugar": ", ".join(v for v in (valores.get("domicilio_municipio"), valores.get("domicilio_estado")) if v),
         "campos": campos,
     }
     return patron, faltantes, observaciones
