@@ -21,6 +21,7 @@ from copy import deepcopy
 from pathlib import Path
 
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 
 CARPETA = Path(__file__).resolve().parent
@@ -102,6 +103,7 @@ FORMATOS = {
         "reemplazos": [],
         "firma_con_nombre": True,
         "representante_en_firma": False,
+        "nombre_bajo_la_linea": False,  # este formato ya trae «(NOMBRE COMPLETO DEL TRABAJADOR )»
         "separar_actividad_1": True,
     },
     "regularizacion": {
@@ -112,6 +114,8 @@ FORMATOS = {
         "firma_con_nombre": False,  # el formato no trae «(NOMBRE COMPLETO DEL TRABAJADOR )»
         # Bajo la línea de firma de la empresa: nombre del representante legal y, debajo, la razón social.
         "representante_en_firma": True,
+        # El formato no trae el nombre bajo la línea de firma del trabajador: se agrega.
+        "nombre_bajo_la_linea": True,
         "separar_actividad_1": True,
     },
 }
@@ -169,6 +173,25 @@ def reemplazar_campo_combinacion(parrafo, campo: str, texto_nuevo: str) -> bool:
         elif run.text:
             run.text = texto_nuevo
     return True
+
+
+def poner_nombre_bajo_la_linea(doc) -> None:
+    """Centra la línea de firma del trabajador y escribe su nombre debajo, como en la de la empresa."""
+    celda = next((c for t in doc.tables for c in t.rows[0].cells
+                  if "EL TRABAJADOR" in c.text and "_____" in c.text), None)
+    if celda is None:
+        sys.exit("ERROR: no se encontró la línea de firma del trabajador.")
+    parrafos = celda.paragraphs
+    linea = next(i for i, p in enumerate(parrafos) if set(p.text.strip()) == {"_"})
+    if len(parrafos) <= linea + 2:
+        sys.exit("ERROR: no hay renglón debajo de la línea de firma para el nombre.")
+    destino = parrafos[linea + 2]
+    modelo = parrafos[linea].runs[0]._r
+    run = destino.add_run("{{ nombre }}")
+    if modelo.rPr is not None:
+        run._r.insert(0, deepcopy(modelo.rPr))
+    for parrafo in parrafos[linea - 1:linea + 3]:
+        parrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
 def separar_actividad_1(doc) -> None:
@@ -238,6 +261,9 @@ def marcar(formato: dict) -> None:
 
     if formato["representante_en_firma"]:
         poner_representante(parrafos)
+
+    if formato["nombre_bajo_la_linea"]:
+        poner_nombre_bajo_la_linea(doc)
 
     if formato["separar_actividad_1"]:
         separar_actividad_1(doc)
