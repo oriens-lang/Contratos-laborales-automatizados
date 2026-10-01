@@ -54,7 +54,7 @@ MARCADORES = {
     "beneficiarios": "beneficiarios",
     "fecha_ingreso_letra": "fecha de ingreso",
     "fecha_firma_letra": "fecha de firma",
-    "lugar_firma": "lugar de firma (domicilio del patrón)",
+    "lugar_firma": "lugar de firma (municipio y estado del patrón)",
 }
 
 # Valor de fecha_firma que indica usar la FECHA ALTA IMSS de cada trabajador.
@@ -96,8 +96,8 @@ def contexto_contrato(trabajador: dict, patron: dict, actividades: list[str],
         "salario_letra": _interpretar(trabajador, "salario_letra", _letra_sin_fraccion,
                                       "SALARIO DIARIO IMSS (letra)", avisos),
         "fecha_firma_letra": _fecha_de_firma(trabajador, fecha_firma, avisos),
-        # El contrato se firma en el domicilio del patrón.
-        "lugar_firma": _domicilio_patron(patron),
+        # El contrato se firma donde está el patrón: municipio y estado.
+        "lugar_firma": _lugar_del_patron(patron),
     }
 
     comida = trabajador.get("horario_comida")
@@ -171,6 +171,14 @@ def _domicilio_patron(patron: dict) -> str:
     calle, numero, colonia, municipio, cp = (p or FALTANTE for p in partes)
     estado = f", {patron['domicilio_estado']}" if patron.get("domicilio_estado") else ""
     return f"{calle} número {numero}, colonia {colonia}, {municipio}{estado}, C.P. {cp}"
+
+
+def _lugar_del_patron(patron: dict) -> str:
+    """Lugar de firma: «Zapopan, Jalisco» (no el domicilio completo)."""
+    municipio, estado = patron.get("domicilio_municipio"), patron.get("domicilio_estado")
+    if not (municipio or estado):
+        return FALTANTE
+    return f"{municipio}, {estado}" if municipio and estado else (municipio or estado)
 
 
 def _domicilio_trabajador(trabajador: dict) -> str:
