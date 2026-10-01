@@ -146,7 +146,8 @@ def generar():
         raise ErrorGeneracion("Elige la plantilla del contrato (paso 1).")
     plantilla = plantillas.ruta(Config.CARPETA_PLANTILLAS, request.form["plantilla"])
     lote = generar_contratos(libro, plantilla, Config.CARPETA_SALIDAS, nombre,
-                             cargar_catalogo(Config.CARPETA_PERFILES), request.form.get("fecha_firma", ""))
+                             cargar_catalogo(Config.CARPETA_PERFILES), request.form.get("fecha_firma", ""),
+                             request.form.get("lugar_firma", ""))
     return jsonify(
         ok=True,
         total=len(lote["archivos"]),
