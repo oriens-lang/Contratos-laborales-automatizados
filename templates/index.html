@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ORIENS | Generador Inteligente de Contratos</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='12') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/estilos.css', v='13') }}">
 </head>
 <body data-limite-mb="{{ limite_mb }}" data-es-local="{{ '1' if es_local else '0' }}">
 
@@ -216,6 +216,10 @@
             <span class="campo__etiqueta">Fecha</span>
             <input type="date" id="fecha-firma">
           </label>
+          <label class="campo">
+            <span class="campo__etiqueta">Lugar de firma</span>
+            <input type="text" id="lugar-firma" placeholder="Municipio y estado del patrón">
+          </label>
         </div>
       </div>
       <div class="barra-acciones__botones">
@@ -246,6 +250,6 @@
     · <a href="{{ url_for('salir') }}">Salir</a>
   </footer>
 
-  <script src="{{ url_for('static', filename='js/app.js', v='12') }}"></script>
+  <script src="{{ url_for('static', filename='js/app.js', v='13') }}"></script>
 </body>
 </html>
