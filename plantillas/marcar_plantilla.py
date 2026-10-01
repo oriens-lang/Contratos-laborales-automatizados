@@ -72,8 +72,6 @@ MARCAS_REGULARIZACION = [
     ("salario diario de $", {1: "{{ salario_diario }}", 2: "{{ salario_letra }}"}),
     ("siendo este _", {1: "{{ correo }}"}),
     ("fecha de ingreso del trabajador fue el día", {1: "{{ fecha_ingreso_letra }}"}),
-    # El contrato se firma en el domicilio del patrón.
-    ("testigos que firman al calce", {1: "{{ fecha_firma_letra }}, en {{ lugar_firma }}"}),
     ("Representante legal de", {1: "{{ patron_razon_social }}"}),
 ]
 
@@ -81,6 +79,8 @@ MARCAS_REGULARIZACION = [
 # jornada solo de lunes a viernes (el sábado se reparte conforme al art. 59 LFT, como ya dice el contrato)
 # descanso para comida con la duración que indica el Excel, sin horas fijas, y horas semanales según el horario.
 REEMPLAZOS_REGULARIZACION = [
+    # Cierre del contrato: «… al calce, en Zapopan, Jalisco a 25 de septiembre de 2026.»
+    (r"al calce, el _+\s*\.", "al calce, en {{ lugar_firma }} a {{ fecha_firma_letra }}."),
     # Sin credencial de elector en los datos del cliente: la declaración termina con el número del IMSS.
     (r"\s*identificándose con credencial para votar con fotografía numero _+\s*expedida a su favor por el "
      r"Instituto Nacional Electoral INE\.", "."),
@@ -102,6 +102,7 @@ FORMATOS = {
         "reemplazos": [],
         "firma_con_nombre": True,
         "representante_en_firma": False,
+        "separar_actividad_1": True,
     },
     "regularizacion": {
         "original": CARPETA / "FORMATO CONTRATO TIEMPO INDETERMINADO REGULARIZACION (original).docx",
@@ -111,6 +112,7 @@ FORMATOS = {
         "firma_con_nombre": False,  # el formato no trae «(NOMBRE COMPLETO DEL TRABAJADOR )»
         # Bajo la línea de firma de la empresa: nombre del representante legal y, debajo, la razón social.
         "representante_en_firma": True,
+        "separar_actividad_1": True,
     },
 }
 
@@ -169,6 +171,39 @@ def reemplazar_campo_combinacion(parrafo, campo: str, texto_nuevo: str) -> bool:
     return True
 
 
+def separar_actividad_1(doc) -> None:
+    """La actividad 1 queda en su propio párrafo (en el formato va tras un salto de línea).
+
+    Así respeta el mismo espacio que las actividades 2 a 5, que sí son párrafos aparte.
+    """
+    parrafos = list(todos_los_parrafos(doc))
+    cláusula = next((p for p in parrafos if "principales actividades del puesto" in p.text), None)
+    modelo = next((p for p in parrafos if p.text.strip().startswith("2.")), None)
+    if cláusula is None or modelo is None:
+        sys.exit("ERROR: no se encontró la cláusula PRIMERA o la actividad 2 para copiar su formato.")
+    salto = cláusula._p.find(".//" + qn("w:br"))
+    if salto is None:
+        return  # ya está separada
+    nuevo = deepcopy(cláusula._p)
+    for hijo in list(nuevo):  # el párrafo nuevo conserva solo lo que iba después del salto
+        nuevo.remove(hijo)
+    if modelo._p.pPr is not None:
+        nuevo.append(deepcopy(modelo._p.pPr))
+    corte, visto = [], False
+    for run in cláusula.runs:
+        if visto:
+            corte.append(run._r)
+        elif run._r.find(qn("w:br")) is not None:
+            visto = True
+            run._r.remove(run._r.find(qn("w:br")))
+            if not run.text:
+                run._r.getparent().remove(run._r)
+    for elemento in corte:
+        elemento.getparent().remove(elemento)
+        nuevo.append(elemento)
+    cláusula._p.addnext(nuevo)
+
+
 def poner_representante(parrafos) -> None:
     """Escribe {{ patron_representante }} en el renglón vacío que precede a «Representante legal de …»."""
     indice = next((i for i, p in enumerate(parrafos) if p.text.startswith("Representante legal de")), None)
@@ -204,6 +239,9 @@ def marcar(formato: dict) -> None:
     if formato["representante_en_firma"]:
         poner_representante(parrafos)
 
+    if formato["separar_actividad_1"]:
+        separar_actividad_1(doc)
+
     # «(NOMBRE COMPLETO DEL TRABAJADOR )» en el bloque de firma.
     if not formato["firma_con_nombre"]:
         doc.save(formato["destino"])
@@ -220,10 +258,15 @@ def marcar(formato: dict) -> None:
     print(f"Creada: {formato['destino'].name}")
 
 
+def _renglones(doc) -> list[str]:
+    """Texto por renglón: los saltos de línea dentro de un párrafo cuentan como renglón aparte."""
+    return [t for p in todos_los_parrafos(doc) for t in p.text.split("\n")]
+
+
 def verificar(formato: dict) -> None:
     """Compara original y copia: solo deben cambiar los espacios variables."""
-    originales = [p.text for p in todos_los_parrafos(Document(formato["original"]))]
-    marcados = [p.text for p in todos_los_parrafos(Document(formato["destino"]))]
+    originales = _renglones(Document(formato["original"]))
+    marcados = _renglones(Document(formato["destino"]))
     if len(originales) != len(marcados):
         sys.exit("ERROR: cambió el número de párrafos.")
     cambios = 0
@@ -238,7 +281,7 @@ def verificar(formato: dict) -> None:
                        for op, i1, i2, j1, j2 in difflib.SequenceMatcher(None, a, b).get_opcodes() if op != "equal"]
         print(f"  {despues[:90]!r}")
         print(f"      {'; '.join(diferencias) if diferencias else 'solo espacios variables'}")
-    print(f"Párrafos modificados: {cambios} de {len(originales)}; el resto quedó idéntico.")
+    print(f"Renglones modificados: {cambios} de {len(originales)}; el resto quedó idéntico.")
 
 
 if __name__ == "__main__":
