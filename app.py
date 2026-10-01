@@ -10,6 +10,8 @@ import os
 import socket
 import subprocess
 import sys
+import threading
+import webbrowser
 import zipfile
 
 from flask import Flask, jsonify, redirect, render_template, request, send_file, session, url_for
@@ -209,10 +211,11 @@ def abrir_salida(lote):
     carpeta = _carpeta_de_lote(lote)
     if carpeta is None:
         return jsonify(ok=False, error="No existe esa carpeta de contratos."), 404
-    if not _es_local() or sys.platform != "darwin":
+    gestor = {"darwin": "open", "win32": "explorer"}.get(sys.platform)
+    if not _es_local() or gestor is None:
         return jsonify(ok=False, error="La carpeta solo se abre en la computadora donde corre la aplicación; "
                                        "usa «Descargar contratos»."), 403
-    subprocess.run(["open", str(carpeta)], check=False)
+    subprocess.run([gestor, str(carpeta)], check=False)
     return jsonify(ok=True)
 
 
@@ -237,5 +240,8 @@ def archivo_demasiado_grande(_error):
 
 
 if __name__ == "__main__":
+    # ORIENS_ABRIR=1: abre el navegador en cuanto el servidor responde (lo usan los accesos directos).
+    if os.environ.get("ORIENS_ABRIR") == "1":
+        threading.Timer(1.5, webbrowser.open, [f"http://127.0.0.1:{Config.PUERTO}/"]).start()
     # Modo de desarrollo (recarga automática) solo si se pide: ORIENS_DEBUG=1
     app.run(host=Config.HOST, port=Config.PUERTO, debug=os.environ.get("ORIENS_DEBUG") == "1")

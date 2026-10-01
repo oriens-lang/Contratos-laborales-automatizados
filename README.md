@@ -20,6 +20,14 @@ Flujo:
 - Si la plantilla usa las actividades del perfil (`{{ actividad_1 }}` … `{{ actividad_5 }}`), cada contrato lleva el perfil de puesto como ANEXO UNO; si no las usa (p. ej., un convenio), no se agrega anexo.
 - El resumen de cada lote solo reporta en blanco los datos que usa la plantilla elegida.
 
+## Instalar en otra computadora
+
+1. **Python**: en Windows, desde [python.org](https://www.python.org/downloads/), marcando «Add python.exe to PATH»; en macOS ya viene instalado.
+2. **El programa**: botón verde **Code → Download ZIP** de este repositorio (o `git clone`).
+3. **Plantillas y perfiles**: no se publican aquí. Copiar los `.docx` del despacho a `plantillas/` y a `perfiles de puesto/`.
+4. **Encender**: doble clic en `iniciar.bat` (Windows) o `iniciar.command` (macOS). La primera vez instala las dependencias; después abre `http://127.0.0.1:5050`.
+5. **Contraseña**: la primera pantalla pide crearla; es propia de esa computadora.
+
 ## Plantilla del contrato (no incluida en el repositorio)
 
 El formato de contrato del despacho no se publica. Para instalar la aplicación en otra Mac, copia la plantilla oficial como `plantillas/FORMATO CONTRATO TIEMPO INDETERMINADO (original).docx` y crea la copia marcada:
@@ -53,6 +61,7 @@ generador-contratos/
 ├── perfiles de puesto/     Un «Perfil de Puesto <puesto>.docx» por puesto
 ├── contratos generados/    Una carpeta por cliente y fecha (no se versiona)
 ├── pruebas/                Archivos de prueba con datos simulados o ficticios
+├── iniciar.bat             Encender en Windows · iniciar.command en macOS
 └── requirements.txt        Dependencias de Python
 ```
 
