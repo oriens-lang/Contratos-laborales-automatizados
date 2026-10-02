@@ -32,6 +32,24 @@ from servicios.mapeo_contrato import FIRMA_ALTA_IMSS, contexto_contrato, en_blan
 from servicios.perfiles import relacionar
 from servicios.validador import FALTANTE
 
+# Contrato en femenino. Solo se cambia lo que concuerda con la persona trabajadora: el término
+# definido, los artículos y los participios. Las referencias genéricas de la Ley («los trabajadores»,
+# «a cualquier trabajador») y lo que concuerda con otras palabras («el salario mencionado») no se tocan.
+FEMENINO = [
+    (r"\bEL TRABAJADOR\b", "LA TRABAJADORA"),
+    (r"\bel(\s+)TRABAJADOR\b", r"la\1TRABAJADORA"),
+    (r"\bMexicano de nacimiento\b", "Mexicana de nacimiento"),
+    (r"\bdel trabajador\b", "de la trabajadora"),
+    (r"\bsu trabajador\b", "su trabajadora"),
+    (r"\bcomo trabajador del Patrón\b", "como trabajadora del Patrón"),
+    (r"\bal ser contratado\b", "al ser contratada"),
+    (r"\bse vea obligado\b", "se vea obligada"),
+    (r"\bmanifestado por el mismo\b", "manifestado por la misma"),
+    # Concordancia del estado civil capturado en el Excel («soltero» → «soltera»).
+    (r"\bestado civil (solter|casad|viud|divorciad)o\b", r"estado civil \1a"),
+]
+FEMENINO = [(re.compile(patron), nuevo) for patron, nuevo in FEMENINO]
+
 ATRIBUTOS_PAGINA = ("orientation", "page_width", "page_height", "left_margin", "right_margin",
                     "top_margin", "bottom_margin", "header_distance", "footer_distance", "gutter")
 
@@ -70,6 +88,8 @@ def generar_contratos(libro: dict, plantilla: Path, carpeta_salidas: Path, archi
 
         doc = DocxTemplate(BytesIO(base))
         doc.render(contexto, autoescape=True)
+        if es_mujer(reg["valores"]):
+            _en_femenino(doc.docx)
         contrato = BytesIO()
         doc.save(contrato)
         contenido = anexar_perfil(contrato.getvalue(), perfil["archivo"]) if perfil else contrato.getvalue()
@@ -136,6 +156,39 @@ def revisar_plantilla(base: bytes) -> set[str]:
         lista = ", ".join("{{ " + d + " }}" for d in desconocidos)
         raise ErrorGeneracion(f"La plantilla usa marcadores que la aplicación no conoce: {lista}.")
     return usados
+
+
+def es_mujer(valores: dict) -> bool:
+    """Sexo de la persona trabajadora: la columna SEXO o, si no existe, el carácter 11 de la CURP."""
+    sexo = (valores.get("sexo") or "").strip().upper()
+    if sexo.startswith(("F", "MUJER")):
+        return True
+    if sexo.startswith(("MASCULINO", "H", "VARON", "VARÓN")):
+        return False
+    curp = (valores.get("curp") or "").strip().upper()
+    return len(curp) >= 11 and curp[10] == "M"
+
+
+def _en_femenino(doc) -> None:
+    """Pone en femenino el contrato ya llenado (no toca el ANEXO UNO: aún no se ha agregado)."""
+    parrafos = list(doc.paragraphs)
+    for tabla in doc.tables:
+        for fila in tabla.rows:
+            for celda in dict.fromkeys(fila.cells):
+                parrafos += celda.paragraphs
+    for parrafo in parrafos:
+        for run in parrafo.runs:
+            for patron, nuevo in FEMENINO:
+                if patron.search(run.text):
+                    run.text = patron.sub(nuevo, run.text)
+        # Lo que quedó repartido entre varios runs se resuelve sobre el párrafo completo.
+        texto = "".join(run.text for run in parrafo.runs)
+        for patron, nuevo in FEMENINO:
+            if patron.search(texto):
+                parrafo.runs[0].text = patron.sub(nuevo, texto)
+                for run in parrafo.runs[1:]:
+                    run.text = ""
+                texto = parrafo.runs[0].text
 
 
 def _texto_de_docx(base: bytes) -> str:
