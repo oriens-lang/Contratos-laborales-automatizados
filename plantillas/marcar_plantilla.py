@@ -80,6 +80,9 @@ MARCAS_REGULARIZACION = [
 # jornada solo de lunes a viernes (el sábado se reparte conforme al art. 59 LFT, como ya dice el contrato)
 # descanso para comida con la duración que indica el Excel, sin horas fijas, y horas semanales según el horario.
 REEMPLAZOS_REGULARIZACION = [
+    # El patrón comparece por conducto de su representante legal.
+    (r"POR UNA PARTE \{\{ patron_razon_social \}\} A QUIEN",
+     "POR UNA PARTE {{ patron_razon_social }}, REPRESENTADA EN ESTE ACTO POR {{ patron_representante }}, A QUIEN"),
     # Cierre del contrato: «… al calce, en Zapopan, Jalisco a 25 de septiembre de 2026.»
     (r"al calce, el _+\s*\.", "al calce, en {{ lugar_firma }} a {{ fecha_firma_letra }}."),
     # Sin credencial de elector en los datos del cliente: la declaración termina con el número del IMSS.
