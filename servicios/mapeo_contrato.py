@@ -209,10 +209,10 @@ def _colonia_y_municipio(trabajador: dict) -> str:
 
 
 def _fecha_con_letra(texto: str) -> str | None:
-    """'12/02/2024' → '12 de febrero de 2024'."""
+    """'12/02/2024' → '12 de febrero de 2024'; una fecha ya escrita con letra se respeta."""
     coincidencia = re.fullmatch(r"(\d{1,2})/(\d{1,2})/(\d{4})", texto.strip())
     if not coincidencia:
-        return None
+        return _fecha_ya_con_letra(texto)
     dia, mes, anio = (int(n) for n in coincidencia.groups())
     return f"{dia} de {MESES[mes - 1]} de {anio}" if 1 <= mes <= 12 and 1 <= dia <= 31 else None
 
@@ -223,6 +223,19 @@ def _fecha_iso_con_letra(texto: str) -> str | None:
     except ValueError:
         return None
     return f"{fecha.day} de {MESES[fecha.month - 1]} de {fecha.year}"
+
+
+def _fecha_ya_con_letra(texto: str) -> str | None:
+    """'Diecisiete de julio de dos mil veintitrés' → la misma fecha, con minúscula inicial.
+
+    Algunos clientes capturan la fecha con letra en vez de 17/07/2023. Se exige que el mes
+    sea uno de los doce para no dar por fecha cualquier texto.
+    """
+    limpio = " ".join(texto.split())
+    partes = re.fullmatch(r"([\wáéíóúñ]+(?: y [\wáéíóúñ]+)?) de ([\wáéíóúñ]+) de ([\wáéíóúñ ]+)", limpio, re.IGNORECASE)
+    if not partes or partes.group(2).lower() not in MESES:
+        return None
+    return limpio[0].lower() + limpio[1:]
 
 
 def _importe(texto: str) -> str | None:
@@ -249,6 +262,8 @@ def _duracion(texto: str) -> str | None:
         return f"{minutos} minutos" if minutos > 0 else None
     if re.fullmatch(r"\s*media\s+hora\s*", texto, re.I):
         return "30 minutos"
+    if re.fullmatch(r"\s*\d{1,3}\s*", texto):  # «30», sin unidad: son minutos
+        return f"{int(texto)} minutos"
     coincidencia = re.fullmatch(r"\s*(\d+(?:[.,]\d+)?)\s*(m|min|mins|minutos?|h|hr|hrs|horas?)\.?\s*", texto, re.I)
     if not coincidencia:
         return None
