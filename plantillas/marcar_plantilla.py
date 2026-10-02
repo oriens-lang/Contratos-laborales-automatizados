@@ -194,6 +194,17 @@ def poner_nombre_bajo_la_linea(doc) -> None:
         parrafo.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
 
+def quitar_negritas_declaracion(doc) -> None:
+    """La declaración II a) del trabajador va en texto normal: resaltarla parecía un añadido."""
+    parrafo = next((p for p in todos_los_parrafos(doc)
+                    if p.text.strip().startswith("a).") and "nacimiento" in p.text or
+                    p.text.strip().startswith("a).") and "originario de" in p.text), None)
+    if parrafo is None:
+        sys.exit("ERROR: no se encontró la declaración II a) del trabajador.")
+    for run in parrafo.runs:
+        run.bold = False
+
+
 def separar_actividad_1(doc) -> None:
     """La actividad 1 queda en su propio párrafo (en el formato va tras un salto de línea).
 
@@ -267,6 +278,8 @@ def marcar(formato: dict) -> None:
 
     if formato["separar_actividad_1"]:
         separar_actividad_1(doc)
+
+    quitar_negritas_declaracion(doc)
 
     # «(NOMBRE COMPLETO DEL TRABAJADOR )» en el bloque de firma.
     if not formato["firma_con_nombre"]:
